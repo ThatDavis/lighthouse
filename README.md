@@ -38,12 +38,22 @@ sudo systemctl status openrgb-server
 sudo openrgb --list-devices
 ```
 
-### Setup
+### Install from Release
+
+Download the latest `lighthouse-install.tar.gz` from the [releases page](https://github.com/ThatDavis/lighthouse/releases), then:
+
+```bash
+tar xzf lighthouse-install.tar.gz
+sudo ./install.sh
+```
+
+### Build from Source
 
 ```bash
 git clone https://github.com/ThatDavis/lighthouse.git
 cd lighthouse
 cargo build --release --target x86_64-unknown-linux-gnu
+sudo cp target/x86_64-unknown-linux-gnu/release/lighthouse /usr/local/bin/
 ```
 
 ### Install
