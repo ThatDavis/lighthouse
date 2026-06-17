@@ -32,6 +32,7 @@ enum Command {
     UpdateLeds = 1050,
     UpdateZoneLeds = 1051,
     UpdateSingleLed = 1052,
+    UpdateMode = 1100,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -99,6 +100,20 @@ impl Connection {
                 Ok(())
             }
         }
+    }
+
+    pub async fn set_device_mode(
+        &mut self,
+        device_id: u32,
+        mode_index: u32,
+    ) -> Result<(), OpenRgbError> {
+        self.send_command(
+            Command::UpdateMode,
+            Mode::Set,
+            device_id,
+            &mode_index.to_le_bytes(),
+        )
+        .await
     }
 
     pub async fn set_zone_color(
