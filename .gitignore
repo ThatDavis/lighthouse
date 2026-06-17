@@ -1,0 +1,10 @@
+/target
+/vendor
+**/*.rs.bk
+Cargo.lock
+.DS_Store
+*.log
+.env
+*.swp
+*.swo
+*.pid

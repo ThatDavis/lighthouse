@@ -1,0 +1,15 @@
+[Unit]
+Description=Lighthouse OpenRGB lighting daemon
+After=network.target openrgb.service
+Wants=openrgb.service
+
+[Service]
+Type=simple
+ExecStart=/usr/local/bin/lighthouse daemon --config /etc/lighthouse/config.toml
+Restart=on-failure
+RestartSec=5
+User=lighthouse
+Group=lighthouse
+
+[Install]
+WantedBy=multi-user.target
