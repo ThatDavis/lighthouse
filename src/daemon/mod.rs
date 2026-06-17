@@ -49,6 +49,13 @@ impl Daemon {
         let mut ticker = interval(Duration::from_secs(self.config.poll_interval));
         info!("daemon started");
 
+        if let Err(e) = connection
+            .set_device_mode(self.config.openrgb_device_id, 0)
+            .await
+        {
+            warn!("failed to set device to Direct mode: {e}");
+        }
+
         while !self.shutdown.load(Ordering::Relaxed) {
             ticker.tick().await;
 

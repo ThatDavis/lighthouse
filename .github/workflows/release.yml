@@ -48,19 +48,69 @@ jobs:
           cat > dist/install.sh <<'EOF'
           #!/usr/bin/env bash
           set -euo pipefail
+
+          if command -v sudo >/dev/null 2>&1; then
+              SUDO="sudo"
+          elif [[ $EUID -eq 0 ]]; then
+              SUDO=""
+          else
+              echo "this script must be run as root or with sudo installed"
+              exit 1
+          fi
+
+          run() {
+              if [[ -n $SUDO ]]; then
+                  $SUDO "$@"
+              else
+                  "$@"
+              fi
+          }
+
           SRC="$(cd "$(dirname "$0")" && pwd)"
           echo "Installing Lighthouse from $SRC"
-          sudo cp "$SRC/lighthouse/usr/local/bin/lighthouse" /usr/local/bin/
-          sudo mkdir -p /etc/lighthouse
-          sudo cp -n "$SRC/lighthouse/etc/lighthouse/config.toml" /etc/lighthouse/config.toml || true
-          sudo cp "$SRC/lighthouse/etc/systemd/system/lighthouse.service" /etc/systemd/system/
-          sudo systemctl daemon-reload
-          sudo useradd -r -s /usr/sbin/nologin lighthouse || true
+          run cp "$SRC/lighthouse/usr/local/bin/lighthouse" /usr/local/bin/
+          run mkdir -p /etc/lighthouse
+          run cp -n "$SRC/lighthouse/etc/lighthouse/config.toml" /etc/lighthouse/config.toml || true
+          run cp "$SRC/lighthouse/etc/systemd/system/lighthouse.service" /etc/systemd/system/
+          run systemctl daemon-reload
+          run useradd -r -s /usr/sbin/nologin lighthouse || true
           echo "Lighthouse installed. Edit /etc/lighthouse/config.toml, then run:"
-          echo "  sudo systemctl enable --now lighthouse"
+          echo "  systemctl enable --now lighthouse"
           EOF
           chmod +x dist/install.sh
-          cd dist && tar czf lighthouse-install.tar.gz install.sh lighthouse/
+
+          cat > dist/uninstall.sh <<'EOF'
+          #!/usr/bin/env bash
+          set -euo pipefail
+
+          if command -v sudo >/dev/null 2>&1; then
+              SUDO="sudo"
+          elif [[ $EUID -eq 0 ]]; then
+              SUDO=""
+          else
+              echo "this script must be run as root or with sudo installed"
+              exit 1
+          fi
+
+          run() {
+              if [[ -n $SUDO ]]; then
+                  $SUDO "$@"
+              else
+                  "$@"
+              fi
+          }
+
+          echo "Uninstalling Lighthouse..."
+          run systemctl stop lighthouse.service 2>/dev/null || true
+          run systemctl disable lighthouse.service 2>/dev/null || true
+          run rm -f /usr/local/bin/lighthouse
+          run rm -f /etc/systemd/system/lighthouse.service
+          run rm -rf /etc/lighthouse
+          run systemctl daemon-reload
+          echo "Lighthouse uninstalled."
+          EOF
+          chmod +x dist/uninstall.sh
+          cd dist && tar czf lighthouse-install.tar.gz install.sh uninstall.sh lighthouse/
 
       - name: Create GitHub release
         uses: softprops/action-gh-release@v2
