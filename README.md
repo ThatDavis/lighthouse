@@ -21,6 +21,23 @@ A lightweight Rust daemon and TUI that maps system telemetry (CPU temperature, l
 - An OpenRGB server running and reachable
 - (Optional) `lm-sensors` for richer temperature data
 
+### Install OpenRGB (headless)
+
+Lighthouse depends on an OpenRGB server to control the motherboard RGB hardware. Run the helper script on your Proxmox host:
+
+```bash
+sudo ./scripts/install-openrgb-headless.sh
+```
+
+This builds OpenRGB from source, installs the `openrgb` binary, and sets up a headless `openrgb-server` systemd service on port `6742`.
+
+Verify it works:
+
+```bash
+sudo systemctl status openrgb-server
+sudo openrgb --list-devices
+```
+
 ### Setup
 
 ```bash

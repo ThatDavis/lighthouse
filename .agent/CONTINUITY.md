@@ -30,6 +30,7 @@ Goal: Read CPU temperature and map it to OpenRGB lighting via configurable thres
 - 2026-06-16: Initial stack — Rust + Tokio + custom OpenRGB SDK client. Rationale: lightweight, reliable, avoids unmaintained third-party crates.
 - 2026-06-16: System metrics via `sysinfo` for simplicity; may add lm-sensors later if needed.
 - 2026-06-16: GitHub Actions will produce an install-ready artifact (binary + systemd service + config template).
+- 2026-06-17: Lighthouse depends on a separate OpenRGB server for hardware control; added `scripts/install-openrgb-headless.sh` to build and install OpenRGB headless on Proxmox.
 
 ## [PROGRESS]
 
