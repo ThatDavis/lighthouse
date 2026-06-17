@@ -2,7 +2,7 @@
 openrgb_host = "127.0.0.1"
 openrgb_port = 6742
 openrgb_device_id = 0
-openrgb_zone_id = 0
+openrgb_zone_ids = [0, 1]
 
 # Polling interval in seconds
 poll_interval = 1

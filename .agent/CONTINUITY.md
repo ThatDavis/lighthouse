@@ -31,7 +31,7 @@ Goal: Read CPU temperature and map it to OpenRGB lighting via configurable thres
 - 2026-06-16: System metrics via `sysinfo` for simplicity; may add lm-sensors later if needed.
 - 2026-06-16: GitHub Actions will produce an install-ready artifact (binary + systemd service + config template).
 - 2026-06-17: Lighthouse depends on a separate OpenRGB server for hardware control; added `scripts/install-openrgb-headless.sh` to build and install OpenRGB headless on Proxmox.
-- 2026-06-17: Added `openrgb_zone_id` config option to control a specific OpenRGB zone (e.g. CPU fan on addressable header).
+- 2026-06-17: Added `openrgb_zone_ids` config option to control multiple OpenRGB zones at once (e.g. motherboard and CPU fan).
 
 ## [PROGRESS]
 

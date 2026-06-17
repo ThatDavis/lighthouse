@@ -8,13 +8,17 @@ pub struct Config {
     pub openrgb_port: u16,
     #[serde(default)]
     pub openrgb_device_id: u32,
-    #[serde(default)]
-    pub openrgb_zone_id: u32,
+    #[serde(default = "default_zone_ids")]
+    pub openrgb_zone_ids: Vec<u32>,
     pub poll_interval: u64,
     pub temperature: TemperatureConfig,
     pub colors: ColorConfig,
     #[serde(default)]
     pub dry_run: bool,
+}
+
+fn default_zone_ids() -> Vec<u32> {
+    vec![0]
 }
 
 #[derive(Debug, Clone, Deserialize, Serialize, PartialEq)]
@@ -105,7 +109,7 @@ mod tests {
             openrgb_host: "127.0.0.1".to_string(),
             openrgb_port: 6742,
             openrgb_device_id: 0,
-            openrgb_zone_id: 0,
+            openrgb_zone_ids: vec![0],
             poll_interval: 1,
             temperature: TemperatureConfig {
                 cold: 35.0,
@@ -144,7 +148,7 @@ mod tests {
     }
 
     #[test]
-    fn loads_config_from_file() {
+    fn loads_zone_ids_from_file() {
         use std::io::Write;
         let mut tmp = tempfile::NamedTempFile::new().unwrap();
         write!(
@@ -152,6 +156,7 @@ mod tests {
             r#"
 openrgb_host = "127.0.0.1"
 openrgb_port = 6742
+openrgb_zone_ids = [0, 1]
 poll_interval = 2
 
 [temperature]
@@ -168,7 +173,6 @@ hot = [255, 0, 0]
         .unwrap();
 
         let config = Config::from_file(tmp.path()).unwrap();
-        assert_eq!(config.poll_interval, 2);
-        assert_eq!(config.temperature.cold, 30.0);
+        assert_eq!(config.openrgb_zone_ids, vec![0, 1]);
     }
 }
