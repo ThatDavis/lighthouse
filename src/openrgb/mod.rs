@@ -101,6 +101,22 @@ impl Connection {
         }
     }
 
+    pub async fn set_zone_color(
+        &mut self,
+        device_id: u32,
+        zone_id: u32,
+        led_count: u32,
+        color: [u8; 3],
+    ) -> Result<(), OpenRgbError> {
+        let mut data = Vec::with_capacity((4 + led_count * 3) as usize);
+        data.extend_from_slice(&zone_id.to_le_bytes());
+        for _ in 0..led_count {
+            data.extend_from_slice(&color);
+        }
+        self.send_command(Command::UpdateZoneLeds, Mode::Set, device_id, &data)
+            .await
+    }
+
     pub async fn set_all_color(
         &mut self,
         device_id: u32,
@@ -148,6 +164,15 @@ mod tests {
         let h = build_header(1050, 1, 0, 3);
         assert_eq!(h.len(), 16);
         assert_eq!(&h[0..4], &[0x1a, 0x04, 0x00, 0x00]);
+    }
+
+    #[test]
+    fn set_zone_color_payload() {
+        let mut conn = Connection::DryRun;
+        let rt = tokio::runtime::Runtime::new().unwrap();
+        rt.block_on(async {
+            conn.set_zone_color(0, 1, 4, [255, 0, 0]).await.unwrap();
+        });
     }
 
     #[test]

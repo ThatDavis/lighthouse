@@ -8,6 +8,8 @@ pub struct Config {
     pub openrgb_port: u16,
     #[serde(default)]
     pub openrgb_device_id: u32,
+    #[serde(default)]
+    pub openrgb_zone_id: u32,
     pub poll_interval: u64,
     pub temperature: TemperatureConfig,
     pub colors: ColorConfig,
@@ -103,6 +105,7 @@ mod tests {
             openrgb_host: "127.0.0.1".to_string(),
             openrgb_port: 6742,
             openrgb_device_id: 0,
+            openrgb_zone_id: 0,
             poll_interval: 1,
             temperature: TemperatureConfig {
                 cold: 35.0,
