@@ -1,6 +1,7 @@
 use crate::config::Config;
 use crate::metrics::Metrics;
 use crate::openrgb::OpenRgbClient;
+use std::collections::HashMap;
 use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::time::Duration;
@@ -56,6 +57,25 @@ impl Daemon {
             warn!("failed to set device to Direct mode: {e}");
         }
 
+        let mut zone_led_counts: HashMap<u32, u32> = HashMap::new();
+        match connection
+            .query_controller_data(self.config.openrgb_device_id)
+            .await
+        {
+            Ok(controller) => {
+                for (idx, zone) in controller.zones.iter().enumerate() {
+                    info!("zone {}: {} ({} leds)", idx, zone.name, zone.led_count);
+                    zone_led_counts.insert(idx as u32, zone.led_count);
+                }
+            }
+            Err(e) => {
+                warn!("failed to query controller data: {e}; using fallback led count of 1");
+                for zone_id in &self.config.openrgb_zone_ids {
+                    zone_led_counts.insert(*zone_id, 1);
+                }
+            }
+        }
+
         while !self.shutdown.load(Ordering::Relaxed) {
             ticker.tick().await;
 
@@ -68,8 +88,9 @@ impl Daemon {
                 );
 
                 for zone_id in &self.config.openrgb_zone_ids {
+                    let led_count = zone_led_counts.get(zone_id).copied().unwrap_or(1);
                     if let Err(e) = connection
-                        .set_zone_color(self.config.openrgb_device_id, *zone_id, 1, color)
+                        .set_zone_color(self.config.openrgb_device_id, *zone_id, led_count, color)
                         .await
                     {
                         warn!("failed to set color for zone {}: {}", zone_id, e);
