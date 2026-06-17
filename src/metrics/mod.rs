@@ -1,4 +1,4 @@
-use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::atomic::AtomicBool;
 use std::sync::Arc;
 use sysinfo::{Components, CpuRefreshKind, RefreshKind, System};
 
@@ -12,6 +12,12 @@ pub struct Metrics {
 pub struct Snapshot {
     pub cpu_temp: Option<f32>,
     pub cpu_usage: f32,
+}
+
+impl Default for Metrics {
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 impl Metrics {

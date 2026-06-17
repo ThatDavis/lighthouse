@@ -18,4 +18,4 @@ warm = [255, 255, 0]
 hot = [255, 0, 0]
 
 # Dry-run mode: log intended color changes without contacting OpenRGB
-dry_run = false
+dry_run = true

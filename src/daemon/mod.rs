@@ -1,6 +1,6 @@
 use crate::config::Config;
 use crate::metrics::Metrics;
-use crate::openrgb::{OpenRgbClient, OpenRgbError};
+use crate::openrgb::OpenRgbClient;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
 use std::time::Duration;

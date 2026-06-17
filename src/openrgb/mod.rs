@@ -1,10 +1,10 @@
-use async_trait::async_trait;
 use std::net::SocketAddr;
 use thiserror::Error;
-use tokio::io::{AsyncReadExt, AsyncWriteExt};
+use tokio::io::AsyncWriteExt;
 use tokio::net::TcpStream;
-use tracing::{debug, error, info, warn};
+use tracing::{debug, info};
 
+#[allow(dead_code)]
 const OPENRGB_PROTOCOL_VERSION: u32 = 4;
 
 #[derive(Debug, Clone)]
@@ -24,6 +24,7 @@ pub enum OpenRgbError {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[allow(dead_code)]
 #[repr(u32)]
 enum Command {
     RequestProtocolVersion = 0,
@@ -34,6 +35,7 @@ enum Command {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[allow(dead_code)]
 #[repr(u32)]
 enum Mode {
     Begin = 0,
