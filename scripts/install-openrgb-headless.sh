@@ -9,19 +9,33 @@ OPENRGB_TAG="release_${OPENRGB_VERSION}"
 INSTALL_PREFIX="/usr/local"
 SERVICE_USER="openrgb"
 SERVICE_NAME="openrgb-server"
+SERVICE_HOME="/var/lib/openrgb"
 
 log() {
     echo "[lighthouse-openrgb-install] $*"
 }
 
-if [[ $EUID -ne 0 ]]; then
-    log "this script must be run as root"
+# Detect privilege escalation tool
+if command -v sudo >/dev/null 2>&1; then
+    SUDO="sudo"
+elif [[ $EUID -eq 0 ]]; then
+    SUDO=""
+else
+    log "this script must be run as root or with sudo installed"
     exit 1
 fi
 
+run() {
+    if [[ -n $SUDO ]]; then
+        $SUDO "$@"
+    else
+        "$@"
+    fi
+}
+
 log "installing build dependencies..."
-apt-get update
-apt-get install -y \
+run apt-get update
+run apt-get install -y \
     git \
     build-essential \
     pkg-config \
@@ -37,9 +51,11 @@ apt-get install -y \
     libmbedtls-dev
 
 log "loading i2c kernel module..."
-modprobe i2c-dev || true
-if ! grep -q "^i2c-dev$" /etc/modules-load.d/*.conf 2>/dev/null; then
-    echo "i2c-dev" > /etc/modules-load.d/i2c.conf
+if ! run modprobe i2c-dev; then
+    log "warning: failed to load i2c-dev module"
+fi
+if ! run grep -q "^i2c-dev$" /etc/modules-load.d/*.conf 2>/dev/null; then
+    run sh -c "echo i2c-dev > /etc/modules-load.d/i2c.conf"
 fi
 
 BUILD_DIR="$(mktemp -d)"
@@ -56,15 +72,29 @@ qmake OpenRGB.pro
 make -j"$(nproc)"
 
 log "installing OpenRGB binary..."
-cp openrgb "${INSTALL_PREFIX}/bin/openrgb"
-chmod +x "${INSTALL_PREFIX}/bin/openrgb"
+run cp openrgb "${INSTALL_PREFIX}/bin/openrgb"
+run chmod +x "${INSTALL_PREFIX}/bin/openrgb"
 
 log "creating service user ${SERVICE_USER}..."
-useradd -r -s /usr/sbin/nologin "${SERVICE_USER}" 2>/dev/null || true
-usermod -aG i2c "${SERVICE_USER}" 2>/dev/null || true
+run useradd -r -s /usr/sbin/nologin "${SERVICE_USER}" 2>/dev/null || true
+run usermod -aG i2c "${SERVICE_USER}" 2>/dev/null || true
+run getent group plugdev >/dev/null && run usermod -aG plugdev "${SERVICE_USER}" 2>/dev/null || true
+
+log "creating service home directory ${SERVICE_HOME}..."
+run mkdir -p "${SERVICE_HOME}/.config"
+run chown -R "${SERVICE_USER}:${SERVICE_USER}" "${SERVICE_HOME}"
+
+log "installing OpenRGB udev rules..."
+run sh -c "cat > /etc/udev/rules.d/60-openrgb.rules <<'UDEOF'
+# OpenRGB udev rules for ASUS and other RGB controllers
+SUBSYSTEM==\"usb\", ATTR{idVendor}==\"0b05\", MODE=\"0666\", TAG+=\"uaccess\"
+SUBSYSTEM==\"hidraw\", ATTRS{idVendor}==\"0b05\", MODE=\"0666\", TAG+=\"uaccess\"
+UDEOF"
+run udevadm control --reload-rules
+run udevadm trigger
 
 log "installing systemd service..."
-cat > "/etc/systemd/system/${SERVICE_NAME}.service" <<'EOF'
+run sh -c "cat > /etc/systemd/system/${SERVICE_NAME}.service <<EOF
 [Unit]
 Description=OpenRGB SDK Server
 After=network.target
@@ -74,24 +104,25 @@ Type=simple
 ExecStart=/usr/local/bin/openrgb --server --server-port 6742
 Restart=on-failure
 RestartSec=5
-User=openrgb
-Group=openrgb
+User=${SERVICE_USER}
+Group=${SERVICE_USER}
+Environment=HOME=${SERVICE_HOME}
 StandardOutput=journal
 StandardError=journal
 
 [Install]
 WantedBy=multi-user.target
-EOF
+EOF"
 
-systemctl daemon-reload
-systemctl enable "${SERVICE_NAME}.service"
+run systemctl daemon-reload
+run systemctl enable "${SERVICE_NAME}.service"
 
 log "starting OpenRGB SDK server..."
-systemctl start "${SERVICE_NAME}.service" || {
+run systemctl start "${SERVICE_NAME}.service" || {
     log "warning: failed to start OpenRGB server automatically"
     log "check logs with: journalctl -u ${SERVICE_NAME}.service"
 }
 
 log "OpenRGB ${OPENRGB_VERSION} installed."
 log "Verify with: systemctl status ${SERVICE_NAME}.service"
-log "List devices with: sudo openrgb --list-devices"
+log "List devices with: ${SUDO:+sudo }openrgb --list-devices"
