@@ -40,7 +40,7 @@ impl Daemon {
                     warn!("dry-run: continuing without OpenRGB ({e})");
                     crate::openrgb::Connection::DryRun
                 } else {
-                    error!("failed to connect to OpenRGB: {e}");
+                    error!("failed to connect to OpenRGB: {e}; exiting");
                     return;
                 }
             }
@@ -60,7 +60,7 @@ impl Daemon {
                     temp, snapshot.cpu_usage, color[0], color[1], color[2]
                 );
 
-                if let Err(e) = connection.set_all_color(0, color).await {
+                if let Err(e) = connection.set_all_color(self.config.openrgb_device_id, 1, color).await {
                     warn!("failed to set color: {e}");
                 }
             } else {

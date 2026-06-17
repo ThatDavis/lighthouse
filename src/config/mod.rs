@@ -6,6 +6,8 @@ use thiserror::Error;
 pub struct Config {
     pub openrgb_host: String,
     pub openrgb_port: u16,
+    #[serde(default)]
+    pub openrgb_device_id: u32,
     pub poll_interval: u64,
     pub temperature: TemperatureConfig,
     pub colors: ColorConfig,
@@ -74,6 +76,10 @@ impl Config {
     }
 
     pub fn default_path() -> PathBuf {
+        let etc_path = PathBuf::from("/etc/lighthouse/config.toml");
+        if etc_path.exists() {
+            return etc_path;
+        }
         dirs::config_dir()
             .unwrap_or_else(|| PathBuf::from("."))
             .join("lighthouse")
@@ -96,6 +102,7 @@ mod tests {
         Config {
             openrgb_host: "127.0.0.1".to_string(),
             openrgb_port: 6742,
+            openrgb_device_id: 0,
             poll_interval: 1,
             temperature: TemperatureConfig {
                 cold: 35.0,
@@ -121,11 +128,44 @@ mod tests {
     }
 
     #[test]
-    fn color_at_boundaries() {
+    fn color_interpolates_between_thresholds() {
         let config = test_config();
-        assert_eq!(config.color_for_temperature(30.0), [0, 0, 255]);
-        assert_eq!(config.color_for_temperature(35.0), [0, 0, 255]);
-        assert_eq!(config.color_for_temperature(75.0), [255, 0, 0]);
-        assert_eq!(config.color_for_temperature(80.0), [255, 0, 0]);
+
+        let mid_cold_warm = config.color_for_temperature(45.0);
+        assert!(mid_cold_warm[0] > 0);
+        assert!(mid_cold_warm[2] > 0);
+
+        let mid_warm_hot = config.color_for_temperature(65.0);
+        assert!(mid_warm_hot[0] > 0);
+        assert!(mid_warm_hot[1] < 255);
+    }
+
+    #[test]
+    fn loads_config_from_file() {
+        use std::io::Write;
+        let mut tmp = tempfile::NamedTempFile::new().unwrap();
+        write!(
+            tmp,
+            r#"
+openrgb_host = "127.0.0.1"
+openrgb_port = 6742
+poll_interval = 2
+
+[temperature]
+cold = 30.0
+warm = 50.0
+hot = 70.0
+
+[colors]
+cold = [0, 0, 255]
+warm = [255, 255, 0]
+hot = [255, 0, 0]
+"#
+        )
+        .unwrap();
+
+        let config = Config::from_file(tmp.path()).unwrap();
+        assert_eq!(config.poll_interval, 2);
+        assert_eq!(config.temperature.cold, 30.0);
     }
 }

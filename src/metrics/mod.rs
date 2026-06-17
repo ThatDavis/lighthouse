@@ -46,8 +46,15 @@ impl Metrics {
         let cpu_temp = self
             .components
             .iter()
+            .filter(|c| c.label().to_lowercase().contains("cpu"))
             .filter_map(|c| c.temperature())
-            .max_by(|a, b| a.partial_cmp(b).unwrap_or(std::cmp::Ordering::Equal));
+            .max_by(|a, b| a.partial_cmp(b).unwrap_or(std::cmp::Ordering::Equal))
+            .or_else(|| {
+                self.components
+                    .iter()
+                    .filter_map(|c| c.temperature())
+                    .max_by(|a, b| a.partial_cmp(b).unwrap_or(std::cmp::Ordering::Equal))
+            });
 
         Snapshot {
             cpu_temp,
@@ -69,5 +76,15 @@ mod tests {
         let mut metrics = Metrics::new();
         let snapshot = metrics.snapshot();
         assert!(snapshot.cpu_usage >= 0.0);
+    }
+
+    #[test]
+    fn snapshot_temperature_is_reasonable() {
+        let mut metrics = Metrics::new();
+        let snapshot = metrics.snapshot();
+        if let Some(temp) = snapshot.cpu_temp {
+            assert!(temp > 0.0);
+            assert!(temp < 120.0);
+        }
     }
 }

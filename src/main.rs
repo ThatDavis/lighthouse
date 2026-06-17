@@ -11,7 +11,7 @@ use clap::{Parser, Subcommand};
 use std::path::PathBuf;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
-use tracing::{error, info};
+use tracing::info;
 
 #[derive(Parser)]
 #[command(name = "lighthouse")]
@@ -71,11 +71,11 @@ async fn main() -> Result<()> {
             let config_path = config.unwrap_or_else(Config::default_path);
             match Config::from_file(&config_path) {
                 Ok(_) => {
-                    info!("config {:?} is valid", config_path);
+                    println!("config {:?} is valid", config_path);
                     Ok(())
                 }
                 Err(e) => {
-                    error!("config {:?} is invalid: {}", config_path, e);
+                    eprintln!("config {:?} is invalid: {}", config_path, e);
                     Err(e.into())
                 }
             }

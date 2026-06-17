@@ -8,13 +8,23 @@
 
 ### Milestone 1: Core Daemon (In Progress)
 Goal: Read CPU temperature and map it to OpenRGB lighting via configurable thresholds, running as a headless daemon.
-- [ ] Read CPU temperature using `sysinfo`
-- [ ] Map temperature to color via configurable thresholds
-- [ ] Connect to OpenRGB server and update lighting
-- [ ] Load config from default or `--config` path
-- [ ] Run as a systemd service
-- [ ] `--dry-run` mode
-- [ ] `lighthouse validate` command
+**Active Feature:** #1 — Implement core daemon: CPU temperature reading, color mapping, and OpenRGB control (branch: `feature/core-daemon`)
+- [x] Read CPU temperature using `sysinfo`
+- [x] Map temperature to color via configurable thresholds
+- [x] Connect to OpenRGB server and update lighting
+- [x] Load config from default or `--config` path
+- [x] Run as a systemd service
+- [x] `--dry-run` mode
+- [x] `lighthouse validate` command
+
+### Sub-tasks
+- [x] Implement CPU temperature reading
+- [x] Implement temperature-to-color mapping
+- [x] Implement OpenRGB control
+- [x] Implement config loading and validation
+- [x] Implement systemd service and dry-run mode
+- [x] Run full test suite and verify acceptance criteria
+
 
 ### Future Milestones
 - Milestone 2: Effects engine (pulse, breathe, cycle, scheduling)

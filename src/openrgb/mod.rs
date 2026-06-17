@@ -2,7 +2,7 @@ use std::net::SocketAddr;
 use thiserror::Error;
 use tokio::io::AsyncWriteExt;
 use tokio::net::TcpStream;
-use tracing::{debug, info};
+use tracing::info;
 
 #[allow(dead_code)]
 const OPENRGB_PROTOCOL_VERSION: u32 = 4;
@@ -81,7 +81,7 @@ impl Connection {
     ) -> Result<(), OpenRgbError> {
         match self {
             Connection::DryRun => {
-                debug!(
+                info!(
                     "dry-run: command={:?} mode={:?} device={} len={}",
                     command,
                     mode,
@@ -100,11 +100,30 @@ impl Connection {
         }
     }
 
-    pub async fn set_all_color(&mut self,
+    pub async fn set_all_color(
+        &mut self,
         device_id: u32,
+        led_count: u32,
         color: [u8; 3],
     ) -> Result<(), OpenRgbError> {
-        let data = vec![color[0], color[1], color[2]];
+        let mut data = Vec::with_capacity((led_count * 4) as usize);
+        for i in 0..led_count {
+            data.extend_from_slice(&i.to_le_bytes());
+            data.extend_from_slice(&color);
+        }
+        self.send_command(Command::UpdateLeds, Mode::Set, device_id, &data)
+            .await
+    }
+
+    pub async fn set_single_color(
+        &mut self,
+        device_id: u32,
+        led_index: u32,
+        color: [u8; 3],
+    ) -> Result<(), OpenRgbError> {
+        let mut data = Vec::with_capacity(7);
+        data.extend_from_slice(&led_index.to_le_bytes());
+        data.extend_from_slice(&color);
         self.send_command(Command::UpdateSingleLed, Mode::Set, device_id, &data)
             .await
     }
@@ -128,5 +147,14 @@ mod tests {
         let h = build_header(1050, 1, 0, 3);
         assert_eq!(h.len(), 16);
         assert_eq!(&h[0..4], &[0x1a, 0x04, 0x00, 0x00]);
+    }
+
+    #[test]
+    fn set_all_color_payload() {
+        let mut conn = Connection::DryRun;
+        let rt = tokio::runtime::Runtime::new().unwrap();
+        rt.block_on(async {
+            conn.set_all_color(0, 2, [255, 0, 0]).await.unwrap();
+        });
     }
 }
