@@ -10,6 +10,9 @@ Restart=on-failure
 RestartSec=5
 User=lighthouse
 Group=lighthouse
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=lighthouse
 
 [Install]
 WantedBy=multi-user.target

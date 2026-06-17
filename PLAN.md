@@ -9,13 +9,13 @@
 **Goal:** Read CPU temperature and map it to OpenRGB lighting via configurable thresholds, running as a headless daemon.
 
 ### Features
-- [ ] Read CPU temperature using `sysinfo`
-- [ ] Map temperature to color/brightness via configurable thresholds
-- [ ] Connect to OpenRGB server and update lighting
-- [ ] Load config from `~/.config/lighthouse/config.toml` or `/etc/lighthouse/config.toml`
-- [ ] Run as a systemd service
-- [ ] Implement `--dry-run` mode for testing without hardware
-- [ ] Provide `lighthouse validate` command
+- [x] Read CPU temperature using `sysinfo`
+- [x] Map temperature to color/brightness via configurable thresholds
+- [x] Connect to OpenRGB server and update lighting
+- [x] Load config from `~/.config/lighthouse/config.toml` or `/etc/lighthouse/config.toml`
+- [x] Run as a systemd service
+- [x] Implement `--dry-run` mode for testing without hardware
+- [x] Provide `lighthouse validate` command
 
 ---
 
@@ -44,8 +44,16 @@
 
 ## Active Feature
 
-*No active feature. Run `/dev:start-feature` to begin.*
+*No active feature. Milestone 1 complete.*
 
 ## Completed Features
 
-*None yet.*
+### 2026-06-17: Milestone 1 — Core Daemon
+- Read CPU temperature using `sysinfo`
+- Map temperature to color/brightness via configurable thresholds
+- Connect to OpenRGB server and update lighting
+- Load config from `~/.config/lighthouse/config.toml` or `/etc/lighthouse/config.toml`
+- Run as a systemd service
+- Implement `--dry-run` mode for testing without hardware
+- Provide `lighthouse validate` command
+

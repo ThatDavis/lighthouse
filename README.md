@@ -21,12 +21,29 @@ A lightweight Rust daemon and TUI that maps system telemetry (CPU temperature, l
 - An OpenRGB server running and reachable
 - (Optional) `lm-sensors` for richer temperature data
 
+### Install OpenRGB (headless)
+
+Lighthouse depends on an OpenRGB server to control the motherboard RGB hardware. Run the helper script on your Proxmox host:
+
+```bash
+sudo ./scripts/install-openrgb-headless.sh
+```
+
+This builds OpenRGB from source, installs the `openrgb` binary, and sets up a headless `openrgb-server` systemd service on port `6742`.
+
+Verify it works:
+
+```bash
+sudo systemctl status openrgb-server
+sudo openrgb --list-devices
+```
+
 ### Setup
 
 ```bash
-git clone https://github.com/yourusername/lighthouse.git
+git clone https://github.com/ThatDavis/lighthouse.git
 cd lighthouse
-cargo build --release
+cargo build --release --target x86_64-unknown-linux-gnu
 ```
 
 ### Install
@@ -34,13 +51,24 @@ cargo build --release
 The CI artifact contains an install script. Alternatively:
 
 ```bash
-sudo cp target/release/lighthouse /usr/local/bin/
+sudo cp target/x86_64-unknown-linux-gnu/release/lighthouse /usr/local/bin/
 sudo mkdir -p /etc/lighthouse
 sudo cp assets/config.example.toml /etc/lighthouse/config.toml
 sudo cp assets/systemd/lighthouse.service /etc/systemd/system/
 sudo systemctl daemon-reload
 sudo systemctl enable --now lighthouse
 ```
+
+### Configuration
+
+Edit `/etc/lighthouse/config.toml`:
+
+- `openrgb_host` / `openrgb_port` — OpenRGB server address
+- `openrgb_device_id` — Device to control (default: 0)
+- `poll_interval` — Seconds between updates
+- `temperature` — `cold`, `warm`, `hot` thresholds in °C
+- `colors` — RGB values for each threshold
+- `dry_run` — Log intended colors without contacting OpenRGB (default: false)
 
 ### Running Tests
 
@@ -73,7 +101,14 @@ cargo test
 
 ## Features
 
-*No production features implemented yet. See [PLAN.md](PLAN.md) for the roadmap.*
+- CPU temperature monitoring via `sysinfo`
+- Temperature-to-color mapping with configurable thresholds
+- OpenRGB server control
+- Headless daemon mode with systemd service
+- Dry-run mode for testing without hardware
+- Config validation with `lighthouse validate`
+
+See [PLAN.md](PLAN.md) for the full roadmap.
 
 ## License
 
