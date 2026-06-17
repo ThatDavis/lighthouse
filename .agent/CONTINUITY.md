@@ -6,9 +6,8 @@
 
 ## [PLANS]
 
-### Milestone 1: Core Daemon (In Progress)
+### Milestone 1: Core Daemon (Complete)
 Goal: Read CPU temperature and map it to OpenRGB lighting via configurable thresholds, running as a headless daemon.
-**Active Feature:** #1 — Implement core daemon: CPU temperature reading, color mapping, and OpenRGB control (branch: `feature/core-daemon`)
 - [x] Read CPU temperature using `sysinfo`
 - [x] Map temperature to color via configurable thresholds
 - [x] Connect to OpenRGB server and update lighting
@@ -16,14 +15,6 @@ Goal: Read CPU temperature and map it to OpenRGB lighting via configurable thres
 - [x] Run as a systemd service
 - [x] `--dry-run` mode
 - [x] `lighthouse validate` command
-
-### Sub-tasks
-- [x] Implement CPU temperature reading
-- [x] Implement temperature-to-color mapping
-- [x] Implement OpenRGB control
-- [x] Implement config loading and validation
-- [x] Implement systemd service and dry-run mode
-- [x] Run full test suite and verify acceptance criteria
 
 
 ### Future Milestones
@@ -45,6 +36,7 @@ Goal: Read CPU temperature and map it to OpenRGB lighting via configurable thres
 | Date | What was done |
 |------|---------------|
 | 2026-06-16 | Initial scaffold. Stack: Rust + Tokio + OpenRGB client. |
+| 2026-06-17 | Completed feature #1: core daemon with CPU temp, color mapping, OpenRGB control. PR #2 opened.
 
 ## [DISCOVERIES]
 
@@ -52,4 +44,11 @@ Goal: Read CPU temperature and map it to OpenRGB lighting via configurable thres
 
 ## [OUTCOMES]
 
-*None yet.*
+### Core Daemon (2026-06-17)
+- CPU temperature reading via `sysinfo` with fallback to any available sensor.
+- Smooth RGB color interpolation between configurable cold/warm/hot thresholds.
+- Minimal OpenRGB SDK client that sends `UpdateLeds` commands.
+- TOML config loading with `/etc/lighthouse/config.toml` fallback and `lighthouse validate`.
+- Dry-run mode for safe testing without an OpenRGB server.
+- Systemd service unit with auto-restart.
+- Milestone 1 complete.
