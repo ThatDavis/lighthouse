@@ -1,7 +1,7 @@
 [Unit]
 Description=Lighthouse OpenRGB lighting daemon
-After=network.target openrgb.service
-Wants=openrgb.service
+After=network.target openrgb-server.service
+Wants=openrgb-server.service
 
 [Service]
 Type=simple
