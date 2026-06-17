@@ -75,6 +75,7 @@ Edit `/etc/lighthouse/config.toml`:
 
 - `openrgb_host` / `openrgb_port` — OpenRGB server address
 - `openrgb_device_id` — Device to control (default: 0)
+- `openrgb_zone_ids` — List of zones to control, e.g. `[0, 1]` (default: `[0]`)
 - `poll_interval` — Seconds between updates
 - `temperature` — `cold`, `warm`, `hot` thresholds in °C
 - `colors` — RGB values for each threshold

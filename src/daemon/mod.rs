@@ -60,16 +60,13 @@ impl Daemon {
                     temp, snapshot.cpu_usage, color[0], color[1], color[2]
                 );
 
-                if let Err(e) = connection
-                    .set_zone_color(
-                        self.config.openrgb_device_id,
-                        self.config.openrgb_zone_id,
-                        1,
-                        color,
-                    )
-                    .await
-                {
-                    warn!("failed to set color: {e}");
+                for zone_id in &self.config.openrgb_zone_ids {
+                    if let Err(e) = connection
+                        .set_zone_color(self.config.openrgb_device_id, *zone_id, 1, color)
+                        .await
+                    {
+                        warn!("failed to set color for zone {}: {}", zone_id, e);
+                    }
                 }
             } else {
                 warn!("no CPU temperature available");
