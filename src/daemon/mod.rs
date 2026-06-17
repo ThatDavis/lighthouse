@@ -61,7 +61,12 @@ impl Daemon {
                 );
 
                 if let Err(e) = connection
-                    .set_all_color(self.config.openrgb_device_id, 1, color)
+                    .set_zone_color(
+                        self.config.openrgb_device_id,
+                        self.config.openrgb_zone_id,
+                        1,
+                        color,
+                    )
                     .await
                 {
                     warn!("failed to set color: {e}");
