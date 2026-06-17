@@ -24,10 +24,13 @@ apt-get update
 apt-get install -y \
     git \
     build-essential \
+    pkg-config \
     qtbase5-dev \
     qttools5-dev \
     libusb-1.0-0-dev \
+    libusb-1.0-0 \
     libhidapi-dev \
+    libhidapi-hidraw0 \
     i2c-tools \
     libgl1-mesa-dev \
     libpulse-dev \
