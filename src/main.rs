@@ -2,6 +2,7 @@ pub mod config;
 pub mod daemon;
 pub mod metrics;
 pub mod openrgb;
+pub mod test_mode;
 pub mod tui;
 
 use crate::config::Config;
@@ -35,6 +36,11 @@ enum Commands {
     },
     /// Validate a config file
     Validate {
+        #[arg(short, long, value_name = "FILE")]
+        config: Option<PathBuf>,
+    },
+    /// Run a color cycle test
+    Test {
         #[arg(short, long, value_name = "FILE")]
         config: Option<PathBuf>,
     },
@@ -80,6 +86,12 @@ async fn main() -> Result<()> {
                     Err(e.into())
                 }
             }
+        }
+        Commands::Test { config } => {
+            let config_path = config.unwrap_or_else(Config::default_path);
+            crate::test_mode::run(config_path)
+                .await
+                .context("test mode failed")
         }
     }
 }
