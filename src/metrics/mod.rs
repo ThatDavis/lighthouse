@@ -1,5 +1,5 @@
-use std::sync::atomic::AtomicBool;
 use std::sync::Arc;
+use std::sync::atomic::AtomicBool;
 use sysinfo::{Components, CpuRefreshKind, RefreshKind, System};
 
 pub struct Metrics {

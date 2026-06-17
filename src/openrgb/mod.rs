@@ -91,7 +91,8 @@ impl Connection {
                 Ok(())
             }
             Connection::Real(stream) => {
-                let header = build_header(command as u32, mode as u32, device_id, data.len() as u32);
+                let header =
+                    build_header(command as u32, mode as u32, device_id, data.len() as u32);
                 stream.write_all(&header).await?;
                 stream.write_all(data).await?;
                 stream.flush().await?;
