@@ -87,6 +87,7 @@ mod tests {
                 name: "temp".to_string(),
                 effects: vec![EffectEntry::Temperature],
             }],
+            schedules: vec![],
         };
         let profile = build_profile("temp", &effects, &temp_config(), &color_config()).unwrap();
         let ctx = EffectContext::with_telemetry(Some(30.0), 0.0);

@@ -74,5 +74,19 @@ name = "cycle"
 type = "cycle"
 speed = 0.2
 
+# Schedules switch profiles automatically based on time of day.
+# outside_range can be "active_profile" (fallback to active_profile) or "off" (lights off).
+[[effects.schedules]]
+start = "08:00"
+end = "18:00"
+profile = "load"
+outside_range = "active_profile"
+
+[[effects.schedules]]
+start = "22:00"
+end = "06:00"
+profile = "breathe"
+outside_range = "off"
+
 # Dry-run mode: log intended color changes without contacting OpenRGB
 dry_run = true

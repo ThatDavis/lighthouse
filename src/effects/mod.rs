@@ -3,6 +3,7 @@ use std::f32::consts::PI;
 use std::time::{SystemTime, UNIX_EPOCH};
 
 pub mod profile;
+pub mod schedule;
 
 #[derive(Debug, Clone, Copy, PartialEq, Default)]
 pub enum BlendMode {
