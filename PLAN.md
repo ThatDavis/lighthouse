@@ -44,7 +44,7 @@
 
 ## Active Feature
 
-*No active feature. Milestone 1 complete.*
+Debug OpenRGB controller query hang by adding a standalone test script (`scripts/test_openrgb.py`) to verify protocol responses before changing the Rust client.
 
 ## Completed Features
 
