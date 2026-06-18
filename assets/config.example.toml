@@ -26,5 +26,53 @@ cold = [0, 0, 255]
 warm = [255, 255, 0]
 hot = [255, 0, 0]
 
+# Effects profiles. The active_profile selects which one runs.
+[effects]
+active_profile = "temperature"
+
+[[effects.profiles]]
+name = "temperature"
+
+[[effects.profiles.effects]]
+type = "temperature"
+
+[[effects.profiles]]
+name = "load"
+
+[[effects.profiles.effects]]
+type = "cpu_usage"
+low = 0.0
+high = 100.0
+low_color = [0, 255, 0]
+high_color = [255, 0, 0]
+
+[[effects.profiles]]
+name = "pulse"
+
+[[effects.profiles.effects]]
+type = "temperature"
+
+[[effects.profiles.effects]]
+type = "pulse"
+color = [255, 0, 0]
+speed = 2.0
+
+[[effects.profiles]]
+name = "breathe"
+
+[[effects.profiles.effects]]
+type = "temperature"
+
+[[effects.profiles.effects]]
+type = "breathe"
+speed = 0.5
+
+[[effects.profiles]]
+name = "cycle"
+
+[[effects.profiles.effects]]
+type = "cycle"
+speed = 0.2
+
 # Dry-run mode: log intended color changes without contacting OpenRGB
 dry_run = true

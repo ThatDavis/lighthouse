@@ -20,6 +20,8 @@ pub struct Config {
     pub temperature: TemperatureConfig,
     pub colors: ColorConfig,
     #[serde(default)]
+    pub effects: EffectsConfig,
+    #[serde(default)]
     pub dry_run: bool,
 }
 
@@ -39,18 +41,86 @@ fn default_transition_interval_ms() -> u64 {
     100
 }
 
-#[derive(Debug, Clone, Deserialize, Serialize, PartialEq)]
+#[derive(Debug, Clone, Copy, Deserialize, Serialize, PartialEq)]
 pub struct TemperatureConfig {
     pub cold: f32,
     pub warm: f32,
     pub hot: f32,
 }
 
-#[derive(Debug, Clone, Deserialize, Serialize, PartialEq)]
+#[derive(Debug, Clone, Copy, Deserialize, Serialize, PartialEq)]
 pub struct ColorConfig {
     pub cold: [u8; 3],
     pub warm: [u8; 3],
     pub hot: [u8; 3],
+}
+
+#[derive(Debug, Clone, Deserialize, Serialize, PartialEq, Default)]
+pub struct EffectsConfig {
+    #[serde(default = "default_active_profile")]
+    pub active_profile: String,
+    #[serde(default)]
+    pub profiles: Vec<EffectProfile>,
+}
+
+fn default_active_profile() -> String {
+    "temperature".to_string()
+}
+
+#[derive(Debug, Clone, Deserialize, Serialize, PartialEq)]
+pub struct EffectProfile {
+    pub name: String,
+    #[serde(default)]
+    pub effects: Vec<EffectEntry>,
+}
+
+#[derive(Debug, Clone, Deserialize, Serialize, PartialEq)]
+#[serde(tag = "type", rename_all = "snake_case")]
+pub enum EffectEntry {
+    Temperature,
+    CpuUsage {
+        #[serde(default = "default_usage_low")]
+        low: f32,
+        #[serde(default = "default_usage_high")]
+        high: f32,
+        #[serde(default = "default_usage_low_color")]
+        low_color: [u8; 3],
+        #[serde(default = "default_usage_high_color")]
+        high_color: [u8; 3],
+    },
+    Pulse {
+        color: [u8; 3],
+        #[serde(default = "default_effect_speed")]
+        speed: f32,
+    },
+    Breathe {
+        #[serde(default = "default_effect_speed")]
+        speed: f32,
+    },
+    Cycle {
+        #[serde(default = "default_effect_speed")]
+        speed: f32,
+    },
+}
+
+fn default_usage_low() -> f32 {
+    0.0
+}
+
+fn default_usage_high() -> f32 {
+    100.0
+}
+
+fn default_usage_low_color() -> [u8; 3] {
+    [0, 255, 0]
+}
+
+fn default_usage_high_color() -> [u8; 3] {
+    [255, 0, 0]
+}
+
+fn default_effect_speed() -> f32 {
+    1.0
 }
 
 #[derive(Debug, Error)]
@@ -67,6 +137,10 @@ pub enum ConfigError {
     InvalidTransitionSteps { value: u32 },
     #[error("invalid transition_interval_ms: {value}; must be >= 10")]
     InvalidTransitionInterval { value: u64 },
+    #[error("unknown active_profile: {name}")]
+    UnknownProfile { name: String },
+    #[error("invalid cpu_usage range: low ({low}) must be < high ({high})")]
+    InvalidUsageRange { low: f32, high: f32 },
 }
 
 impl Config {
@@ -102,6 +176,30 @@ impl Config {
                 value: self.transition_interval_ms,
             });
         }
+
+        let profile_names: std::collections::HashSet<_> =
+            self.effects.profiles.iter().map(|p| &p.name).collect();
+        if !profile_names.contains(&self.effects.active_profile)
+            && !self.effects.profiles.is_empty()
+        {
+            return Err(ConfigError::UnknownProfile {
+                name: self.effects.active_profile.clone(),
+            });
+        }
+
+        for profile in &self.effects.profiles {
+            for effect in &profile.effects {
+                if let EffectEntry::CpuUsage { low, high, .. } = effect {
+                    if *low >= *high {
+                        return Err(ConfigError::InvalidUsageRange {
+                            low: *low,
+                            high: *high,
+                        });
+                    }
+                }
+            }
+        }
+
         Ok(())
     }
 
@@ -167,6 +265,7 @@ mod tests {
                 warm: [255, 255, 0],
                 hot: [255, 0, 0],
             },
+            effects: EffectsConfig::default(),
             dry_run: false,
         }
     }
@@ -192,6 +291,33 @@ mod tests {
 
         config.transition_steps = 5;
         config.transition_interval_ms = 5;
+        assert!(config.validate().is_err());
+    }
+
+    #[test]
+    fn validates_active_profile() {
+        let mut config = test_config();
+        config.effects.active_profile = "missing".to_string();
+        config.effects.profiles.push(EffectProfile {
+            name: "existing".to_string(),
+            effects: vec![EffectEntry::Temperature],
+        });
+        assert!(config.validate().is_err());
+    }
+
+    #[test]
+    fn validates_cpu_usage_range() {
+        let mut config = test_config();
+        config.effects.profiles.push(EffectProfile {
+            name: "load".to_string(),
+            effects: vec![EffectEntry::CpuUsage {
+                low: 100.0,
+                high: 0.0,
+                low_color: [0, 0, 0],
+                high_color: [255, 0, 0],
+            }],
+        });
+        config.effects.active_profile = "load".to_string();
         assert!(config.validate().is_err());
     }
 
@@ -241,6 +367,19 @@ hot = 70.0
 cold = [0, 0, 255]
 warm = [255, 255, 0]
 hot = [255, 0, 0]
+
+[effects]
+active_profile = "load"
+
+[[effects.profiles]]
+name = "load"
+
+[[effects.profiles.effects]]
+type = "cpu_usage"
+low = 0.0
+high = 100.0
+low_color = [0, 255, 0]
+high_color = [255, 0, 0]
 "#
         )
         .unwrap();
@@ -250,5 +389,7 @@ hot = [255, 0, 0]
         assert_eq!(config.temp_smoothing, 0.8);
         assert_eq!(config.transition_steps, 10);
         assert_eq!(config.transition_interval_ms, 50);
+        assert_eq!(config.effects.active_profile, "load");
+        assert_eq!(config.effects.profiles.len(), 1);
     }
 }
