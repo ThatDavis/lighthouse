@@ -5,7 +5,7 @@ use std::collections::HashMap;
 use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::time::Duration;
-use tokio::time::interval;
+use tokio::time::sleep;
 use tracing::{error, info, warn};
 
 pub struct Daemon {
@@ -17,8 +17,8 @@ pub struct Daemon {
 impl Daemon {
     pub fn new(config: Config) -> Self {
         Self {
+            metrics: Metrics::new(config.temp_smoothing),
             config,
-            metrics: Metrics::new(),
             shutdown: Arc::new(AtomicBool::new(false)),
         }
     }
@@ -60,7 +60,6 @@ impl Daemon {
             }
         };
 
-        let mut ticker = interval(Duration::from_secs(self.config.poll_interval));
         info!("daemon started");
 
         let mut zone_led_counts: HashMap<u32, u32> = HashMap::new();
@@ -95,29 +94,53 @@ impl Daemon {
             warn!("cannot set Direct mode without controller data");
         }
 
-        while !self.shutdown.load(Ordering::Relaxed) {
-            ticker.tick().await;
+        let mut current_color: Option<[u8; 3]> = None;
 
+        while !self.shutdown.load(Ordering::Relaxed) {
             let snapshot = self.metrics.snapshot();
             if let Some(temp) = snapshot.cpu_temp {
-                let color = self.config.color_for_temperature(temp);
-                info!(
-                    "cpu_temp={:.1}°C cpu_usage={:.1}% color=rgb({},{},{})",
-                    temp, snapshot.cpu_usage, color[0], color[1], color[2]
-                );
+                let target = self.config.color_for_temperature(temp);
+                let start = current_color.unwrap_or(target);
+                let steps = self.config.transition_steps.max(1);
 
-                for zone_id in &self.config.openrgb_zone_ids {
-                    let led_count = zone_led_counts.get(zone_id).copied().unwrap_or(1);
-                    if let Err(e) = connection
-                        .set_zone_color(self.config.openrgb_device_id, *zone_id, led_count, color)
-                        .await
-                    {
-                        warn!("failed to set color for zone {}: {}", zone_id, e);
+                for step in 1..=steps {
+                    if self.shutdown.load(Ordering::Relaxed) {
+                        break;
+                    }
+
+                    let ratio = step as f32 / steps as f32;
+                    let color = Config::interpolate_color(start, target, ratio);
+                    current_color = Some(color);
+
+                    info!(
+                        "cpu_temp={:.1}°C cpu_usage={:.1}% color=rgb({},{},{})",
+                        temp, snapshot.cpu_usage, color[0], color[1], color[2]
+                    );
+
+                    for zone_id in &self.config.openrgb_zone_ids {
+                        let led_count = zone_led_counts.get(zone_id).copied().unwrap_or(1);
+                        if let Err(e) = connection
+                            .set_zone_color(
+                                self.config.openrgb_device_id,
+                                *zone_id,
+                                led_count,
+                                color,
+                            )
+                            .await
+                        {
+                            warn!("failed to set color for zone {}: {}", zone_id, e);
+                        }
+                    }
+
+                    if step < steps {
+                        sleep(Duration::from_millis(self.config.transition_interval_ms)).await;
                     }
                 }
             } else {
                 warn!("no CPU temperature available");
             }
+
+            sleep(Duration::from_secs(self.config.poll_interval)).await;
         }
 
         info!("daemon shutting down");

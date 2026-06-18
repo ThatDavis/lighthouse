@@ -11,6 +11,12 @@ pub struct Config {
     #[serde(default = "default_zone_ids")]
     pub openrgb_zone_ids: Vec<u32>,
     pub poll_interval: u64,
+    #[serde(default = "default_temp_smoothing")]
+    pub temp_smoothing: f32,
+    #[serde(default = "default_transition_steps")]
+    pub transition_steps: u32,
+    #[serde(default = "default_transition_interval_ms")]
+    pub transition_interval_ms: u64,
     pub temperature: TemperatureConfig,
     pub colors: ColorConfig,
     #[serde(default)]
@@ -19,6 +25,18 @@ pub struct Config {
 
 fn default_zone_ids() -> Vec<u32> {
     vec![0]
+}
+
+fn default_temp_smoothing() -> f32 {
+    1.0
+}
+
+fn default_transition_steps() -> u32 {
+    1
+}
+
+fn default_transition_interval_ms() -> u64 {
+    100
 }
 
 #[derive(Debug, Clone, Deserialize, Serialize, PartialEq)]
@@ -43,6 +61,12 @@ pub enum ConfigError {
     Parse(#[from] toml::de::Error),
     #[error("invalid thresholds: cold ({cold}) must be <= warm ({warm}) <= hot ({hot})")]
     InvalidThresholds { cold: f32, warm: f32, hot: f32 },
+    #[error("invalid temp_smoothing: {value}; must be between 0.0 and 1.0")]
+    InvalidTempSmoothing { value: f32 },
+    #[error("invalid transition_steps: {value}; must be >= 1")]
+    InvalidTransitionSteps { value: u32 },
+    #[error("invalid transition_interval_ms: {value}; must be >= 10")]
+    InvalidTransitionInterval { value: u64 },
 }
 
 impl Config {
@@ -63,6 +87,21 @@ impl Config {
                 hot: self.temperature.hot,
             });
         }
+        if !(0.0..=1.0).contains(&self.temp_smoothing) {
+            return Err(ConfigError::InvalidTempSmoothing {
+                value: self.temp_smoothing,
+            });
+        }
+        if self.transition_steps < 1 {
+            return Err(ConfigError::InvalidTransitionSteps {
+                value: self.transition_steps,
+            });
+        }
+        if self.transition_interval_ms < 10 {
+            return Err(ConfigError::InvalidTransitionInterval {
+                value: self.transition_interval_ms,
+            });
+        }
         Ok(())
     }
 
@@ -79,6 +118,10 @@ impl Config {
             let ratio = (temp - t.warm) / (t.hot - t.warm);
             interpolate(self.colors.warm, self.colors.hot, ratio)
         }
+    }
+
+    pub fn interpolate_color(a: [u8; 3], b: [u8; 3], ratio: f32) -> [u8; 3] {
+        interpolate(a, b, ratio)
     }
 
     pub fn default_path() -> PathBuf {
@@ -111,6 +154,9 @@ mod tests {
             openrgb_device_id: 0,
             openrgb_zone_ids: vec![0],
             poll_interval: 1,
+            temp_smoothing: 1.0,
+            transition_steps: 1,
+            transition_interval_ms: 100,
             temperature: TemperatureConfig {
                 cold: 35.0,
                 warm: 55.0,
@@ -135,6 +181,21 @@ mod tests {
     }
 
     #[test]
+    fn validates_smoothing_options() {
+        let mut config = test_config();
+        config.temp_smoothing = 1.5;
+        assert!(config.validate().is_err());
+
+        config.temp_smoothing = 0.5;
+        config.transition_steps = 0;
+        assert!(config.validate().is_err());
+
+        config.transition_steps = 5;
+        config.transition_interval_ms = 5;
+        assert!(config.validate().is_err());
+    }
+
+    #[test]
     fn color_interpolates_between_thresholds() {
         let config = test_config();
 
@@ -148,6 +209,14 @@ mod tests {
     }
 
     #[test]
+    fn interpolate_color_is_linear() {
+        let a = [0, 0, 0];
+        let b = [100, 200, 50];
+        let mid = Config::interpolate_color(a, b, 0.5);
+        assert_eq!(mid, [50, 100, 25]);
+    }
+
+    #[test]
     fn loads_zone_ids_from_file() {
         use std::io::Write;
         let mut tmp = tempfile::NamedTempFile::new().unwrap();
@@ -158,6 +227,10 @@ openrgb_host = "127.0.0.1"
 openrgb_port = 6742
 openrgb_zone_ids = [0, 1]
 poll_interval = 2
+
+temp_smoothing = 0.8
+transition_steps = 10
+transition_interval_ms = 50
 
 [temperature]
 cold = 30.0
@@ -174,5 +247,8 @@ hot = [255, 0, 0]
 
         let config = Config::from_file(tmp.path()).unwrap();
         assert_eq!(config.openrgb_zone_ids, vec![0, 1]);
+        assert_eq!(config.temp_smoothing, 0.8);
+        assert_eq!(config.transition_steps, 10);
+        assert_eq!(config.transition_interval_ms, 50);
     }
 }
