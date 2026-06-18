@@ -4,12 +4,13 @@ use crate::effects::EffectContext;
 use crate::effects::profile::{build_profile, render};
 use crate::effects::schedule::{ProfileSelection, resolve_profile};
 use crate::metrics::Metrics;
+use crate::mqtt::{LightCommand, MqttClient};
 use crate::openrgb::OpenRgbClient;
 use std::collections::HashMap;
 use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::time::Duration;
-use tokio::time::sleep;
+use tokio::time::{sleep, timeout};
 use tracing::{error, info, warn};
 
 pub struct Daemon {
@@ -89,6 +90,18 @@ impl Daemon {
             &self.config.colors,
         );
 
+        let mut mqtt: Option<MqttClient> = None;
+        let mut mqtt_override: Option<LightCommand> = None;
+        if self.config.mqtt.enabled {
+            match MqttClient::connect(&self.config.mqtt).await {
+                Ok(client) => {
+                    info!("MQTT enabled");
+                    mqtt = Some(client);
+                }
+                Err(e) => warn!("MQTT connection failed: {e}"),
+            }
+        }
+
         let mut zone_led_counts: HashMap<u32, u32> = HashMap::new();
         let controller = match connection
             .query_controller_data(self.config.openrgb_device_id)
@@ -122,13 +135,28 @@ impl Daemon {
         }
 
         let mut current_color: Option<[u8; 3]> = None;
+        let mut interval = tokio::time::interval(Duration::from_secs(self.config.poll_interval));
+        interval.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Delay);
 
-        while !self.shutdown.load(Ordering::Relaxed) {
+        loop {
+            if self.shutdown.load(Ordering::Relaxed) {
+                break;
+            }
+
+            if let Some(ref mut mqtt_client) = mqtt {
+                match timeout(Duration::from_millis(10), mqtt_client.recv_command()).await {
+                    Ok(Some(cmd)) => {
+                        mqtt_override = Some(cmd);
+                    }
+                    Ok(None) => {}
+                    Err(_) => {}
+                }
+            }
+
             let snapshot = self.metrics.snapshot();
             let ctx = EffectContext::with_telemetry(snapshot.cpu_temp, snapshot.cpu_usage);
 
-            let selection = resolve_profile(&self.config.effects, current_minutes());
-            let target = match selection {
+            let computed_target = match resolve_profile(&self.config.effects, current_minutes()) {
                 ProfileSelection::Off => [0u8; 3],
                 ProfileSelection::Scheduled(name) => profiles
                     .get(name)
@@ -145,6 +173,12 @@ impl Daemon {
                         self.config
                             .color_for_temperature(snapshot.cpu_temp.unwrap_or(35.0))
                     }),
+            };
+
+            let (target, light_on) = match mqtt_override {
+                Some(cmd) if !cmd.on => ([0u8; 3], false),
+                Some(cmd) => (cmd.color, true),
+                None => (computed_target, true),
             };
 
             let start = current_color.unwrap_or(target);
@@ -168,6 +202,15 @@ impl Daemon {
                     color[2]
                 );
 
+                if let Some(ref mqtt_client) = mqtt {
+                    mqtt_client.publish_states(
+                        snapshot.cpu_temp,
+                        snapshot.cpu_usage,
+                        color,
+                        light_on,
+                    );
+                }
+
                 for zone_id in &self.config.openrgb_zone_ids {
                     let led_count = zone_led_counts.get(zone_id).copied().unwrap_or(1);
                     if let Err(e) = connection
@@ -183,7 +226,7 @@ impl Daemon {
                 }
             }
 
-            sleep(Duration::from_secs(self.config.poll_interval)).await;
+            interval.tick().await;
         }
 
         info!("daemon shutting down");
