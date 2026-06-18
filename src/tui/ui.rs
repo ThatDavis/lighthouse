@@ -1,14 +1,20 @@
 use ratatui::{
     Frame,
     layout::{Alignment, Constraint, Direction, Layout, Rect},
-    style::{Color, Modifier, Style},
+    style::{Modifier, Style},
     text::{Line, Span, Text},
-    widgets::{Block, Borders, Clear, List, ListItem, Paragraph, Wrap},
+    widgets::{Block, Borders, BorderType, Clear, List, ListItem, Padding, Paragraph, Wrap},
 };
 
 use crate::tui::app::{App, InputMode, Screen};
+use crate::tui::theme::MOCHA;
 
 pub fn draw(frame: &mut Frame, app: &App) {
+    frame.render_widget(
+        Block::default().style(Style::default().bg(MOCHA.base)),
+        frame.area(),
+    );
+
     let chunks = Layout::default()
         .direction(Direction::Vertical)
         .margin(1)
@@ -24,40 +30,52 @@ pub fn draw(frame: &mut Frame, app: &App) {
     draw_footer(frame, app, chunks[2]);
 }
 
+fn base_block(title: &str) -> Block<'_> {
+    Block::default()
+        .borders(Borders::ALL)
+        .border_type(BorderType::Rounded)
+        .border_style(Style::default().fg(MOCHA.surface1))
+        .style(Style::default().bg(MOCHA.base).fg(MOCHA.text))
+        .padding(Padding::horizontal(1))
+        .title(Span::styled(title, Style::default().fg(MOCHA.lavender).add_modifier(Modifier::BOLD)))
+}
+
 fn draw_header(frame: &mut Frame, app: &App, area: Rect) {
-    let titles: Vec<Line> = Screen::all()
+    let cells: Vec<Line> = Screen::all()
         .iter()
         .enumerate()
         .map(|(i, screen)| {
-            let style = if *screen == app.screen {
-                Style::default()
-                    .fg(Color::Black)
-                    .bg(Color::Cyan)
-                    .add_modifier(Modifier::BOLD)
+            let active = *screen == app.screen;
+            let (fg, bg) = if active {
+                (MOCHA.base, MOCHA.mauve)
             } else {
-                Style::default().fg(Color::Gray)
+                (MOCHA.subtext0, MOCHA.surface0)
             };
-            let prefix = if i < 9 {
-                format!("{}.", i + 1)
-            } else {
-                String::new()
-            };
+            let style = Style::default()
+                .fg(fg)
+                .bg(bg)
+                .add_modifier(if active { Modifier::BOLD } else { Modifier::empty() });
             Line::from(vec![
-                Span::raw(" "),
-                Span::styled(format!("{}{}", prefix, screen.title()), style),
+                Span::styled(format!(" {}.{}", i + 1, screen.title()), style),
                 Span::raw(" "),
             ])
         })
         .collect();
 
-    let tabs = Text::from(titles);
-    let paragraph = Paragraph::new(tabs).block(
-        Block::default()
-            .borders(Borders::ALL)
-            .title("Lighthouse")
-            .title_alignment(Alignment::Center),
-    );
-    frame.render_widget(paragraph, area);
+    let header = Paragraph::new(Text::from(cells))
+        .alignment(Alignment::Center)
+        .block(
+            Block::default()
+                .borders(Borders::ALL)
+                .border_type(BorderType::Rounded)
+                .border_style(Style::default().fg(MOCHA.surface1))
+                .style(Style::default().bg(MOCHA.base))
+                .title(Span::styled(
+                    " Lighthouse ",
+                    Style::default().fg(MOCHA.rosewater).add_modifier(Modifier::BOLD),
+                )),
+        );
+    frame.render_widget(header, area);
 }
 
 fn draw_main(frame: &mut Frame, app: &App, area: Rect) {
@@ -83,25 +101,38 @@ fn draw_status(frame: &mut Frame, app: &App, area: Rect) {
     let daemon = format!("{:?}", app.daemon_status);
 
     let lines = vec![
-        Line::from(vec![Span::styled(
-            "Current Status",
-            Style::default()
-                .add_modifier(Modifier::BOLD)
-                .fg(Color::Cyan),
-        )]),
-        Line::raw(""),
-        Line::from(vec![Span::raw(format!("CPU Temp:    {}", temp))]),
-        Line::from(vec![Span::raw(format!("CPU Usage:   {}", usage))]),
-        Line::from(vec![Span::raw(format!("Color:       {}", color))]),
-        Line::from(vec![Span::raw(format!(
-            "Profile:     {}",
-            app.current_profile
-        ))]),
-        Line::from(vec![Span::raw(format!("Daemon:      {}", daemon))]),
+        Line::from(vec![
+            Span::styled("CPU Temp", Style::default().fg(MOCHA.blue)),
+            Span::raw(": "),
+            Span::styled(temp, Style::default().fg(MOCHA.green).add_modifier(Modifier::BOLD)),
+        ]),
+        Line::from(vec![
+            Span::styled("CPU Usage", Style::default().fg(MOCHA.blue)),
+            Span::raw(": "),
+            Span::styled(usage, Style::default().fg(MOCHA.green).add_modifier(Modifier::BOLD)),
+        ]),
+        Line::from(vec![
+            Span::styled("Color", Style::default().fg(MOCHA.blue)),
+            Span::raw(": "),
+            Span::styled(color, Style::default().fg(MOCHA.peach).add_modifier(Modifier::BOLD)),
+        ]),
+        Line::from(vec![
+            Span::styled("Profile", Style::default().fg(MOCHA.blue)),
+            Span::raw(": "),
+            Span::styled(
+                app.current_profile.clone(),
+                Style::default().fg(MOCHA.mauve).add_modifier(Modifier::BOLD),
+            ),
+        ]),
+        Line::from(vec![
+            Span::styled("Daemon", Style::default().fg(MOCHA.blue)),
+            Span::raw(": "),
+            Span::styled(daemon, Style::default().fg(MOCHA.sky).add_modifier(Modifier::BOLD)),
+        ]),
     ];
 
     let paragraph = Paragraph::new(Text::from(lines))
-        .block(Block::default().borders(Borders::ALL).title("Status"))
+        .block(base_block("Status"))
         .wrap(Wrap { trim: true });
     frame.render_widget(paragraph, area);
 }
@@ -113,24 +144,22 @@ fn draw_thresholds(frame: &mut Frame, app: &App, area: Rect) {
         .enumerate()
         .map(|(i, label)| {
             let value = &app.thresholds[i];
-            let style = if app.selected_field == i {
-                Style::default().fg(Color::Black).bg(Color::Yellow)
+            let selected = app.selected_field == i;
+            let style = if selected {
+                Style::default().fg(MOCHA.base).bg(MOCHA.yellow).add_modifier(Modifier::BOLD)
             } else {
-                Style::default()
+                Style::default().fg(MOCHA.text)
             };
-            ListItem::new(format!("{}: {}", label, value)).style(style)
+            let marker = if selected { "▸ " } else { "  " };
+            ListItem::new(format!("{}{}: {}°C", marker, label, value)).style(style)
         })
         .collect();
 
-    let list = List::new(rows).block(
-        Block::default()
-            .borders(Borders::ALL)
-            .title("Temperature Thresholds (°C)"),
-    );
+    let list = List::new(rows).block(base_block("Temperature Thresholds"));
     frame.render_widget(list, area);
 
     if app.input_mode == InputMode::Editing {
-        draw_input_popup(frame, area, &app.thresholds[app.selected_field]);
+        draw_input_popup(frame, area, &app.thresholds[app.selected_field], "Edit threshold");
     }
 }
 
@@ -141,96 +170,142 @@ fn draw_colors(frame: &mut Frame, app: &App, area: Rect) {
         .enumerate()
         .map(|(i, label)| {
             let value = &app.colors[i];
-            let style = if app.selected_field == i {
-                Style::default().fg(Color::Black).bg(Color::Yellow)
+            let selected = app.selected_field == i;
+            let style = if selected {
+                Style::default().fg(MOCHA.base).bg(MOCHA.yellow).add_modifier(Modifier::BOLD)
             } else {
-                Style::default()
+                Style::default().fg(MOCHA.text)
             };
-            ListItem::new(format!("{}: [{}]", label, value)).style(style)
+            let marker = if selected { "▸ " } else { "  " };
+            ListItem::new(format!("{}{}: [{}]", marker, label, value)).style(style)
         })
         .collect();
 
-    let list = List::new(rows).block(
-        Block::default()
-            .borders(Borders::ALL)
-            .title("Colors [r, g, b]"),
-    );
+    let list = List::new(rows).block(base_block("Colors [r, g, b]"));
     frame.render_widget(list, area);
 
     if app.input_mode == InputMode::Editing {
-        draw_input_popup(frame, area, &app.colors[app.selected_field]);
+        draw_input_popup(frame, area, &app.colors[app.selected_field], "Edit color as r, g, b");
     }
 }
 
 fn draw_effects(frame: &mut Frame, app: &App, area: Rect) {
     let fields = [
-        format!("Active Profile: {}", app.active_profile),
-        format!("Temp Smoothing: {}", app.temp_smoothing),
-        format!("Transition Steps: {}", app.transition_steps),
-        format!("Transition Interval (ms): {}", app.transition_interval),
+        ("Active Profile", app.active_profile.as_str()),
+        ("Temp Smoothing", app.temp_smoothing.as_str()),
+        ("Transition Steps", app.transition_steps.as_str()),
+        ("Transition Interval (ms)", app.transition_interval.as_str()),
     ];
     let rows: Vec<ListItem> = fields
         .iter()
         .enumerate()
-        .map(|(i, text)| {
-            let style = if app.selected_field == i {
-                Style::default().fg(Color::Black).bg(Color::Yellow)
+        .map(|(i, (label, value))| {
+            let selected = app.selected_field == i;
+            let style = if selected {
+                Style::default().fg(MOCHA.base).bg(MOCHA.yellow).add_modifier(Modifier::BOLD)
             } else {
-                Style::default()
+                Style::default().fg(MOCHA.text)
             };
-            ListItem::new(text.clone()).style(style)
+            let marker = if selected { "▸ " } else { "  " };
+            ListItem::new(format!("{}{}: {}", marker, label, value)).style(style)
         })
         .collect();
 
-    let list = List::new(rows).block(Block::default().borders(Borders::ALL).title("Effects"));
+    let list = List::new(rows).block(base_block("Effects"));
     frame.render_widget(list, area);
 
     if app.input_mode == InputMode::Editing {
-        let value = match app.selected_field {
-            0 => app.active_profile.clone(),
-            1 => app.temp_smoothing.clone(),
-            2 => app.transition_steps.clone(),
-            _ => app.transition_interval.clone(),
+        let (title, value) = match app.selected_field {
+            0 => ("Edit active profile", app.active_profile.as_str()),
+            1 => ("Edit temp smoothing", app.temp_smoothing.as_str()),
+            2 => ("Edit transition steps", app.transition_steps.as_str()),
+            _ => ("Edit transition interval", app.transition_interval.as_str()),
         };
-        draw_input_popup(frame, area, &value);
+        draw_input_popup(frame, area, value, title);
     }
 }
 
-fn draw_daemon(frame: &mut Frame, _app: &App, area: Rect) {
-    let help = Paragraph::new(Text::from(vec![
-        Line::from(vec![Span::raw("s: start daemon")]),
-        Line::from(vec![Span::raw("S: stop daemon")]),
-        Line::from(vec![Span::raw("r: restart daemon")]),
-        Line::from(vec![Span::raw("u: refresh status")]),
-    ]))
-    .block(
-        Block::default()
-            .borders(Borders::ALL)
-            .title("Daemon Control"),
-    );
-    frame.render_widget(help, area);
+fn draw_daemon(frame: &mut Frame, app: &App, area: Rect) {
+    let status = format!("{:?}", app.daemon_status);
+    let lines = vec![
+        Line::from(vec![
+            Span::styled("Current status", Style::default().fg(MOCHA.blue)),
+            Span::raw(": "),
+            Span::styled(status, Style::default().fg(MOCHA.sky).add_modifier(Modifier::BOLD)),
+        ]),
+        Line::raw(""),
+        Line::from(vec![Span::styled(
+            "Shortcuts",
+            Style::default().fg(MOCHA.lavender).add_modifier(Modifier::BOLD),
+        )]),
+        Line::from(vec![
+            Span::styled("s", Style::default().fg(MOCHA.peach).add_modifier(Modifier::BOLD)),
+            Span::raw(" start daemon"),
+        ]),
+        Line::from(vec![
+            Span::styled("S", Style::default().fg(MOCHA.peach).add_modifier(Modifier::BOLD)),
+            Span::raw(" stop daemon"),
+        ]),
+        Line::from(vec![
+            Span::styled("r", Style::default().fg(MOCHA.peach).add_modifier(Modifier::BOLD)),
+            Span::raw(" restart daemon"),
+        ]),
+        Line::from(vec![
+            Span::styled("u", Style::default().fg(MOCHA.peach).add_modifier(Modifier::BOLD)),
+            Span::raw(" refresh status"),
+        ]),
+    ];
+
+    let paragraph = Paragraph::new(Text::from(lines)).block(base_block("Daemon Control"));
+    frame.render_widget(paragraph, area);
 }
 
 fn draw_footer(frame: &mut Frame, app: &App, area: Rect) {
     let help = if app.input_mode == InputMode::Editing {
-        "Enter: confirm | Esc: cancel"
+        "Enter: confirm | Esc: cancel".to_string()
+    } else if app.status_message.starts_with("error:") {
+        app.status_message.clone()
     } else {
-        "Tab/1-5: switch screen | ↑↓: select | Enter: edit | q: quit | Ctrl+S: save config"
+        format!(
+            "Tab / 1-5: switch screen | ↑↓: select | Enter: edit | q: quit | Ctrl+S: save | {}",
+            app.status_message
+        )
     };
-    let status = format!("{} | {}", help, app.status_message);
-    let paragraph = Paragraph::new(status)
-        .block(Block::default().borders(Borders::ALL))
+
+    let style = if app.input_mode == InputMode::Editing {
+        Style::default().fg(MOCHA.yellow)
+    } else if app.status_message.starts_with("error:") {
+        Style::default().fg(MOCHA.red)
+    } else {
+        Style::default().fg(MOCHA.subtext0)
+    };
+
+    let paragraph = Paragraph::new(help)
+        .style(style.patch(Style::default().bg(MOCHA.surface0)))
+        .block(
+            Block::default()
+                .borders(Borders::ALL)
+                .border_type(BorderType::Rounded)
+                .border_style(Style::default().fg(MOCHA.surface1)),
+        )
         .wrap(Wrap { trim: true });
     frame.render_widget(paragraph, area);
 }
 
-fn draw_input_popup(frame: &mut Frame, area: Rect, value: &str) {
-    let popup = centered_rect(60, 20, area);
+fn draw_input_popup(frame: &mut Frame, area: Rect, value: &str, title: &str) {
+    let popup = centered_rect(60, 25, area);
     let block = Block::default()
         .borders(Borders::ALL)
-        .title("Edit")
-        .title_alignment(Alignment::Center);
-    let paragraph = Paragraph::new(value).block(block).wrap(Wrap { trim: true });
+        .border_type(BorderType::Rounded)
+        .border_style(Style::default().fg(MOCHA.mauve))
+        .style(Style::default().bg(MOCHA.surface0).fg(MOCHA.text))
+        .title(Span::styled(
+            title,
+            Style::default().fg(MOCHA.lavender).add_modifier(Modifier::BOLD),
+        ));
+    let paragraph = Paragraph::new(value)
+        .block(block)
+        .wrap(Wrap { trim: true });
     frame.render_widget(Clear, popup);
     frame.render_widget(paragraph, popup);
 }

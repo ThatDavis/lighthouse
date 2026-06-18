@@ -1,6 +1,7 @@
 pub mod app;
 pub mod daemon;
 pub mod events;
+pub mod theme;
 pub mod ui;
 
 use crate::config::Config;
