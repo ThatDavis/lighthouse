@@ -26,10 +26,10 @@
 - [x] Add CPU usage effect
 - [x] Effect scheduling and profile selection
 
-### Milestone 3: Interactive TUI
-- [ ] View current status
-- [ ] Edit thresholds and select effects
-- [ ] Control daemon (start/stop/restart)
+### Milestone 3: Interactive TUI (Complete)
+- [x] View current status
+- [x] Edit thresholds and select effects
+- [x] Control daemon (start/stop/restart)
 
 ### Milestone 4: Home Assistant Integration
 - [ ] MQTT or REST API for remote control
@@ -62,4 +62,10 @@
 - Added effect profiles: temperature, cpu_usage, pulse, breathe, cycle.
 - Added time-based scheduling with off-hours support.
 - Added transition smoothing and temperature EMA smoothing.
+
+### 2026-06-18: Milestone 3 — Interactive TUI
+- Live status dashboard with CPU temp, usage, color, profile, and daemon state.
+- Editable forms for thresholds, colors, and effect settings.
+- Daemon control via systemctl (start/stop/restart).
+- Save config to disk from the TUI.
 
