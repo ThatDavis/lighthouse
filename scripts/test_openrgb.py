@@ -47,7 +47,7 @@ def recv_packet(sock):
         if not chunk:
             raise RuntimeError("connection closed while reading header")
         header += chunk
-    _, command, data_size = struct.unpack("<4sII", header)
+    _, _, command, data_size = struct.unpack("<4sIII", header)
     data = b""
     while len(data) < data_size:
         chunk = sock.recv(data_size - len(data))
