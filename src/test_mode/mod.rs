@@ -18,22 +18,17 @@ pub async fn run(config_path: PathBuf) -> Result<()> {
         Err(e) => {
             if config.dry_run {
                 warn!("dry-run: continuing without OpenRGB ({e})");
-                crate::openrgb::Connection::DryRun
+                OpenRgbClient::new(&config.openrgb_host, config.openrgb_port, true)
+                    .connect()
+                    .await?
             } else {
                 anyhow::bail!("failed to connect to OpenRGB: {e}");
             }
         }
     };
 
-    if let Err(e) = connection
-        .set_device_mode(config.openrgb_device_id, 0)
-        .await
-    {
-        warn!("failed to set Direct mode: {e}");
-    }
-
     let mut zone_led_counts: HashMap<u32, u32> = HashMap::new();
-    match connection
+    let controller = match connection
         .query_controller_data(config.openrgb_device_id)
         .await
     {
@@ -42,13 +37,26 @@ pub async fn run(config_path: PathBuf) -> Result<()> {
                 info!("zone {}: {} ({} leds)", idx, zone.name, zone.led_count);
                 zone_led_counts.insert(idx as u32, zone.led_count);
             }
+            Some(controller)
         }
         Err(e) => {
             warn!("failed to query controller data: {e}; using fallback led count of 1");
             for zone_id in &config.openrgb_zone_ids {
                 zone_led_counts.insert(*zone_id, 1);
             }
+            None
         }
+    };
+
+    if let Some(ref controller) = controller {
+        if let Err(e) = connection
+            .set_direct_mode(config.openrgb_device_id, controller)
+            .await
+        {
+            warn!("failed to set Direct mode: {e}");
+        }
+    } else {
+        warn!("cannot set Direct mode without controller data");
     }
 
     let colors: Vec<[u8; 3]> = vec![

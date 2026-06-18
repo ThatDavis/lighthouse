@@ -38,11 +38,14 @@ Goal: Read CPU temperature and map it to OpenRGB lighting via configurable thres
 | Date | What was done |
 |------|---------------|
 | 2026-06-16 | Initial scaffold. Stack: Rust + Tokio + OpenRGB client. |
-| 2026-06-17 | Completed feature #1: core daemon with CPU temp, color mapping, OpenRGB control. PR #2 opened.
+| 2026-06-17 | Completed feature #1: core daemon with CPU temp, color mapping, OpenRGB control. PR #2 opened. |
+| 2026-06-17 | Fixed OpenRGB SDK protocol: magic header, command IDs, version negotiation, controller parsing, Direct mode via UpdateMode, size-prefixed LED payloads. PR opened.
 
 ## [DISCOVERIES]
 
-*None yet.*
+- The OpenRGB SDK protocol requires an `ORGB` magic prefix and a 16-byte header of `magic | device_id | command | data_size`.
+- `SetCustomMode` (command 1100) only changes the internal active mode index; colors only appear after sending `UpdateMode` (command 1101) with the full Direct mode description.
+- `UpdateZoneLeds` payloads must be size-prefixed: `[size: u32][zone_id: u32][num_colors: u16][colors: u32...]`.
 
 ## [OUTCOMES]
 

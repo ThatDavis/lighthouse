@@ -39,7 +39,20 @@ impl Daemon {
             Err(e) => {
                 if self.config.dry_run {
                     warn!("dry-run: continuing without OpenRGB ({e})");
-                    crate::openrgb::Connection::DryRun
+                    match OpenRgbClient::new(
+                        &self.config.openrgb_host,
+                        self.config.openrgb_port,
+                        true,
+                    )
+                    .connect()
+                    .await
+                    {
+                        Ok(conn) => conn,
+                        Err(_) => {
+                            error!("dry-run: failed to create dry-run connection; exiting");
+                            return;
+                        }
+                    }
                 } else {
                     error!("failed to connect to OpenRGB: {e}; exiting");
                     return;
@@ -50,15 +63,8 @@ impl Daemon {
         let mut ticker = interval(Duration::from_secs(self.config.poll_interval));
         info!("daemon started");
 
-        if let Err(e) = connection
-            .set_device_mode(self.config.openrgb_device_id, 0)
-            .await
-        {
-            warn!("failed to set device to Direct mode: {e}");
-        }
-
         let mut zone_led_counts: HashMap<u32, u32> = HashMap::new();
-        match connection
+        let controller = match connection
             .query_controller_data(self.config.openrgb_device_id)
             .await
         {
@@ -67,13 +73,26 @@ impl Daemon {
                     info!("zone {}: {} ({} leds)", idx, zone.name, zone.led_count);
                     zone_led_counts.insert(idx as u32, zone.led_count);
                 }
+                Some(controller)
             }
             Err(e) => {
                 warn!("failed to query controller data: {e}; using fallback led count of 1");
                 for zone_id in &self.config.openrgb_zone_ids {
                     zone_led_counts.insert(*zone_id, 1);
                 }
+                None
             }
+        };
+
+        if let Some(ref controller) = controller {
+            if let Err(e) = connection
+                .set_direct_mode(self.config.openrgb_device_id, controller)
+                .await
+            {
+                warn!("failed to set device to Direct mode: {e}");
+            }
+        } else {
+            warn!("cannot set Direct mode without controller data");
         }
 
         while !self.shutdown.load(Ordering::Relaxed) {
