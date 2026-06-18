@@ -7,6 +7,13 @@ openrgb_zone_ids = [0, 1]
 # Polling interval in seconds
 poll_interval = 1
 
+# Temperature EMA smoothing: 1.0 = no smoothing, 0.1 = very smooth
+temp_smoothing = 1.0
+
+# Color transition smoothing
+transition_steps = 1
+transition_interval_ms = 100
+
 # Temperature thresholds in Celsius
 [temperature]
 cold = 35.0
