@@ -1,6 +1,6 @@
 # Lighthouse
 
-A lightweight Rust daemon and TUI that maps system telemetry (CPU temperature, load) to OpenRGB-controlled motherboard Aurora lighting. Designed to run on a Proxmox server.
+A lightweight Rust daemon and TUI that maps system telemetry (CPU temperature, load) to OpenRGB-controlled motherboard lighting. Designed to run on a Proxmox server, with optional Home Assistant integration via MQTT.
 
 ## Stack
 
@@ -9,6 +9,7 @@ A lightweight Rust daemon and TUI that maps system telemetry (CPU temperature, l
 - **TUI:** ratatui + crossterm
 - **System metrics:** sysinfo
 - **OpenRGB control:** Custom minimal OpenRGB SDK client
+- **MQTT:** rumqttc with Home Assistant discovery
 - **Config:** TOML
 - **Logging:** tracing + tracing-journald
 - **CI:** GitHub Actions
@@ -19,7 +20,7 @@ A lightweight Rust daemon and TUI that maps system telemetry (CPU temperature, l
 
 - Rust 1.85+ (install via [rustup](https://rustup.rs))
 - An OpenRGB server running and reachable
-- (Optional) `lm-sensors` for richer temperature data
+- (Optional) An MQTT broker such as Mosquitto for Home Assistant integration
 
 ### Install OpenRGB (headless)
 
@@ -79,6 +80,10 @@ Edit `/etc/lighthouse/config.toml`:
 - `poll_interval` — Seconds between updates
 - `temperature` — `cold`, `warm`, `hot` thresholds in °C
 - `colors` — RGB values for each threshold
+- `temp_smoothing` — EMA alpha for temperature (0.0–1.0)
+- `transition_steps` / `transition_interval_ms` — Color transition smoothing
+- `effects` — Named effect profiles (temperature, cpu_usage, pulse, breathe, cycle) and schedules
+- `mqtt` — Home Assistant MQTT discovery and control
 - `dry_run` — Log intended colors without contacting OpenRGB (default: false)
 
 ### Running Tests
@@ -97,7 +102,9 @@ cargo test
 ├── src/                 # Rust source
 │   ├── config/          # TOML config parsing and validation
 │   ├── daemon/          # Headless daemon loop
+│   ├── effects/         # Lighting effect profiles and scheduling
 │   ├── metrics/         # System telemetry readers
+│   ├── mqtt/            # Home Assistant MQTT client
 │   ├── openrgb/         # OpenRGB SDK client
 │   ├── tui/             # Interactive terminal UI
 │   └── main.rs          # CLI entry point
@@ -109,13 +116,19 @@ cargo test
 - `lighthouse daemon` — Run the lighting daemon
 - `lighthouse tui` — Launch the interactive TUI
 - `lighthouse validate` — Validate the config file
+- `lighthouse test` — Run a color cycle test
 
 ## Features
 
-- CPU temperature monitoring via `sysinfo`
+- CPU temperature and usage monitoring via `sysinfo`
 - Temperature-to-color mapping with configurable thresholds
+- Multiple effect profiles: temperature, CPU usage, pulse, breathe, cycle
+- Time-based effect scheduling with off-hours support
+- Color and temperature smoothing
 - OpenRGB server control
 - Headless daemon mode with systemd service
+- Interactive TUI for status, editing, and daemon control
+- Home Assistant MQTT discovery for sensors and light control
 - Dry-run mode for testing without hardware
 - Config validation with `lighthouse validate`
 

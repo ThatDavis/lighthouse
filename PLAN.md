@@ -31,9 +31,9 @@
 - [x] Edit thresholds and select effects
 - [x] Control daemon (start/stop/restart)
 
-### Milestone 4: Home Assistant Integration
-- [ ] MQTT or REST API for remote control
-- [ ] Expose sensors and light entity to Home Assistant
+### Milestone 4: Home Assistant Integration (Complete)
+- [x] MQTT or REST API for remote control
+- [x] Expose sensors and light entity to Home Assistant
 
 ---
 
@@ -68,4 +68,9 @@
 - Editable forms for thresholds, colors, and effect settings.
 - Daemon control via systemctl (start/stop/restart).
 - Save config to disk from the TUI.
+
+### 2026-06-18: Milestone 4 — Home Assistant Integration
+- Added MQTT client with Home Assistant discovery.
+- Exposed CPU temperature and CPU usage sensors.
+- Exposed a light entity controllable from Home Assistant (ON/OFF and RGB).
 
