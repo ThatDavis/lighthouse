@@ -1,4 +1,6 @@
 use crate::config::Config;
+use crate::effects::EffectContext;
+use crate::effects::profile::{build_profile, render};
 use crate::metrics::Metrics;
 use crate::openrgb::OpenRgbClient;
 use std::collections::HashMap;
@@ -62,6 +64,13 @@ impl Daemon {
 
         info!("daemon started");
 
+        let profile = build_profile(
+            &self.config.effects.active_profile,
+            &self.config.effects,
+            &self.config.temperature,
+            &self.config.colors,
+        );
+
         let mut zone_led_counts: HashMap<u32, u32> = HashMap::new();
         let controller = match connection
             .query_controller_data(self.config.openrgb_device_id)
@@ -98,46 +107,49 @@ impl Daemon {
 
         while !self.shutdown.load(Ordering::Relaxed) {
             let snapshot = self.metrics.snapshot();
-            if let Some(temp) = snapshot.cpu_temp {
-                let target = self.config.color_for_temperature(temp);
-                let start = current_color.unwrap_or(target);
-                let steps = self.config.transition_steps.max(1);
+            let ctx = EffectContext::with_telemetry(snapshot.cpu_temp, snapshot.cpu_usage);
 
-                for step in 1..=steps {
-                    if self.shutdown.load(Ordering::Relaxed) {
-                        break;
-                    }
+            let target = match &profile {
+                Some(p) => render(p, &ctx),
+                None => self
+                    .config
+                    .color_for_temperature(snapshot.cpu_temp.unwrap_or(35.0)),
+            };
 
-                    let ratio = step as f32 / steps as f32;
-                    let color = Config::interpolate_color(start, target, ratio);
-                    current_color = Some(color);
+            let start = current_color.unwrap_or(target);
+            let steps = self.config.transition_steps.max(1);
 
-                    info!(
-                        "cpu_temp={:.1}°C cpu_usage={:.1}% color=rgb({},{},{})",
-                        temp, snapshot.cpu_usage, color[0], color[1], color[2]
-                    );
+            for step in 1..=steps {
+                if self.shutdown.load(Ordering::Relaxed) {
+                    break;
+                }
 
-                    for zone_id in &self.config.openrgb_zone_ids {
-                        let led_count = zone_led_counts.get(zone_id).copied().unwrap_or(1);
-                        if let Err(e) = connection
-                            .set_zone_color(
-                                self.config.openrgb_device_id,
-                                *zone_id,
-                                led_count,
-                                color,
-                            )
-                            .await
-                        {
-                            warn!("failed to set color for zone {}: {}", zone_id, e);
-                        }
-                    }
+                let ratio = step as f32 / steps as f32;
+                let color = Config::interpolate_color(start, target, ratio);
+                current_color = Some(color);
 
-                    if step < steps {
-                        sleep(Duration::from_millis(self.config.transition_interval_ms)).await;
+                info!(
+                    "cpu_temp={:.1}°C cpu_usage={:.1}% color=rgb({},{},{})",
+                    snapshot.cpu_temp.unwrap_or(0.0),
+                    snapshot.cpu_usage,
+                    color[0],
+                    color[1],
+                    color[2]
+                );
+
+                for zone_id in &self.config.openrgb_zone_ids {
+                    let led_count = zone_led_counts.get(zone_id).copied().unwrap_or(1);
+                    if let Err(e) = connection
+                        .set_zone_color(self.config.openrgb_device_id, *zone_id, led_count, color)
+                        .await
+                    {
+                        warn!("failed to set color for zone {}: {}", zone_id, e);
                     }
                 }
-            } else {
-                warn!("no CPU temperature available");
+
+                if step < steps {
+                    sleep(Duration::from_millis(self.config.transition_interval_ms)).await;
+                }
             }
 
             sleep(Duration::from_secs(self.config.poll_interval)).await;

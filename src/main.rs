@@ -1,5 +1,6 @@
 pub mod config;
 pub mod daemon;
+pub mod effects;
 pub mod metrics;
 pub mod openrgb;
 pub mod test_mode;
