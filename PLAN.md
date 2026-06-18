@@ -44,7 +44,7 @@
 
 ## Active Feature
 
-Debug OpenRGB controller query hang by adding a standalone test script (`scripts/test_openrgb.py`) to verify protocol responses before changing the Rust client.
+*No active feature.*
 
 ## Completed Features
 
@@ -56,4 +56,8 @@ Debug OpenRGB controller query hang by adding a standalone test script (`scripts
 - Run as a systemd service
 - Implement `--dry-run` mode for testing without hardware
 - Provide `lighthouse validate` command
+
+### 2026-06-17: OpenRGB SDK Protocol Fix
+- Added `scripts/test_openrgb.py` to debug controller query hang.
+- Fixed OpenRGB SDK client: magic header, correct command IDs, protocol version negotiation, controller data parsing, Direct mode setup via `UpdateMode`, and size-prefixed LED update payloads.
 
