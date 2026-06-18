@@ -21,9 +21,10 @@
 
 ## Future Milestones
 
-### Milestone 2: Effects Engine
-- [ ] Add lighting effects (pulse, breathe, cycle)
-- [ ] Effect scheduling and profile selection
+### Milestone 2: Effects Engine (Complete)
+- [x] Add lighting effects (pulse, breathe, cycle)
+- [x] Add CPU usage effect
+- [x] Effect scheduling and profile selection
 
 ### Milestone 3: Interactive TUI
 - [ ] View current status
@@ -57,7 +58,8 @@
 - Implement `--dry-run` mode for testing without hardware
 - Provide `lighthouse validate` command
 
-### 2026-06-17: OpenRGB SDK Protocol Fix
-- Added `scripts/test_openrgb.py` to debug controller query hang.
-- Fixed OpenRGB SDK client: magic header, correct command IDs, protocol version negotiation, controller data parsing, Direct mode setup via `UpdateMode`, and size-prefixed LED update payloads.
+### 2026-06-17: Milestone 2 — Effects Engine
+- Added effect profiles: temperature, cpu_usage, pulse, breathe, cycle.
+- Added time-based scheduling with off-hours support.
+- Added transition smoothing and temperature EMA smoothing.
 
