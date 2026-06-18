@@ -61,10 +61,29 @@ pub struct EffectsConfig {
     pub active_profile: String,
     #[serde(default)]
     pub profiles: Vec<EffectProfile>,
+    #[serde(default)]
+    pub schedules: Vec<Schedule>,
 }
 
 fn default_active_profile() -> String {
     "temperature".to_string()
+}
+
+#[derive(Debug, Clone, Deserialize, Serialize, PartialEq)]
+pub struct Schedule {
+    pub start: String,
+    pub end: String,
+    pub profile: String,
+    #[serde(default)]
+    pub outside_range: OutsideRange,
+}
+
+#[derive(Debug, Clone, Deserialize, Serialize, PartialEq, Default)]
+#[serde(rename_all = "snake_case")]
+pub enum OutsideRange {
+    #[default]
+    ActiveProfile,
+    Off,
 }
 
 #[derive(Debug, Clone, Deserialize, Serialize, PartialEq)]
@@ -141,6 +160,12 @@ pub enum ConfigError {
     UnknownProfile { name: String },
     #[error("invalid cpu_usage range: low ({low}) must be < high ({high})")]
     InvalidUsageRange { low: f32, high: f32 },
+    #[error("invalid schedule time: {value}; expected HH:MM")]
+    InvalidScheduleTime { value: String },
+    #[error("schedule end ({end}) must be after start ({start})")]
+    InvalidScheduleRange { start: String, end: String },
+    #[error("unknown schedule profile: {name}")]
+    UnknownScheduleProfile { name: String },
 }
 
 impl Config {
@@ -200,6 +225,26 @@ impl Config {
             }
         }
 
+        for schedule in &self.effects.schedules {
+            parse_time(&schedule.start).map_err(|_| ConfigError::InvalidScheduleTime {
+                value: schedule.start.clone(),
+            })?;
+            let end = parse_time(&schedule.end).map_err(|_| ConfigError::InvalidScheduleTime {
+                value: schedule.end.clone(),
+            })?;
+            if end <= parse_time(&schedule.start).unwrap_or(0) {
+                return Err(ConfigError::InvalidScheduleRange {
+                    start: schedule.start.clone(),
+                    end: schedule.end.clone(),
+                });
+            }
+            if !profile_names.contains(&schedule.profile) {
+                return Err(ConfigError::UnknownScheduleProfile {
+                    name: schedule.profile.clone(),
+                });
+            }
+        }
+
         Ok(())
     }
 
@@ -232,6 +277,25 @@ impl Config {
             .join("lighthouse")
             .join("config.toml")
     }
+}
+
+fn parse_time(value: &str) -> Result<u16, ()> {
+    let mut parts = value.split(':');
+    let hour: u16 = parts.next().ok_or(())?.parse().map_err(|_| ())?;
+    let minute: u16 = parts.next().ok_or(())?.parse().map_err(|_| ())?;
+    if parts.next().is_some() || hour >= 24 || minute >= 60 {
+        return Err(());
+    }
+    Ok(hour * 60 + minute)
+}
+
+pub fn current_minutes() -> u16 {
+    let now = std::time::SystemTime::now();
+    let since_epoch = now
+        .duration_since(std::time::UNIX_EPOCH)
+        .unwrap_or_default();
+    let secs = since_epoch.as_secs();
+    ((secs / 3600 % 24) * 60 + (secs / 60 % 60)) as u16
 }
 
 fn interpolate(a: [u8; 3], b: [u8; 3], ratio: f32) -> [u8; 3] {

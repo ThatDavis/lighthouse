@@ -1,6 +1,8 @@
 use crate::config::Config;
+use crate::config::current_minutes;
 use crate::effects::EffectContext;
 use crate::effects::profile::{build_profile, render};
+use crate::effects::schedule::{ProfileSelection, resolve_profile};
 use crate::metrics::Metrics;
 use crate::openrgb::OpenRgbClient;
 use std::collections::HashMap;
@@ -64,7 +66,23 @@ impl Daemon {
 
         info!("daemon started");
 
-        let profile = build_profile(
+        let profiles: HashMap<String, crate::effects::profile::Profile> = self
+            .config
+            .effects
+            .profiles
+            .iter()
+            .filter_map(|p| {
+                build_profile(
+                    &p.name,
+                    &self.config.effects,
+                    &self.config.temperature,
+                    &self.config.colors,
+                )
+                .map(|built| (p.name.clone(), built))
+            })
+            .collect();
+
+        let active_profile = build_profile(
             &self.config.effects.active_profile,
             &self.config.effects,
             &self.config.temperature,
@@ -109,11 +127,24 @@ impl Daemon {
             let snapshot = self.metrics.snapshot();
             let ctx = EffectContext::with_telemetry(snapshot.cpu_temp, snapshot.cpu_usage);
 
-            let target = match &profile {
-                Some(p) => render(p, &ctx),
-                None => self
-                    .config
-                    .color_for_temperature(snapshot.cpu_temp.unwrap_or(35.0)),
+            let selection = resolve_profile(&self.config.effects, current_minutes());
+            let target = match selection {
+                ProfileSelection::Off => [0u8; 3],
+                ProfileSelection::Scheduled(name) => profiles
+                    .get(name)
+                    .map(|p| render(p, &ctx))
+                    .unwrap_or_else(|| {
+                        warn!("scheduled profile '{}' not found; falling back", name);
+                        self.config
+                            .color_for_temperature(snapshot.cpu_temp.unwrap_or(35.0))
+                    }),
+                ProfileSelection::ActiveProfile => active_profile
+                    .as_ref()
+                    .map(|p| render(p, &ctx))
+                    .unwrap_or_else(|| {
+                        self.config
+                            .color_for_temperature(snapshot.cpu_temp.unwrap_or(35.0))
+                    }),
             };
 
             let start = current_color.unwrap_or(target);
