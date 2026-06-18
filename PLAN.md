@@ -68,6 +68,9 @@
 - Editable forms for thresholds, colors, and effect settings.
 - Daemon control via systemctl (start/stop/restart).
 - Save config to disk from the TUI.
+- Catppuccin Mocha theme with rounded, boxed widgets and active tab highlighting.
+- Per-field input validation with inline status-bar error messages.
+- Fixed schedule validation to allow midnight wrap-around ranges (e.g., 22:00–06:00).
 
 ### 2026-06-18: Milestone 4 — Home Assistant Integration
 - Added MQTT client with Home Assistant discovery.

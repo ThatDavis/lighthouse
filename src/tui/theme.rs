@@ -1,0 +1,48 @@
+use ratatui::style::Color;
+
+#[allow(dead_code)]
+pub struct Theme {
+    pub base: Color,
+    pub surface0: Color,
+    pub surface1: Color,
+    pub overlay0: Color,
+    pub text: Color,
+    pub subtext0: Color,
+    pub lavender: Color,
+    pub blue: Color,
+    pub sapphire: Color,
+    pub sky: Color,
+    pub teal: Color,
+    pub green: Color,
+    pub yellow: Color,
+    pub peach: Color,
+    pub maroon: Color,
+    pub red: Color,
+    pub mauve: Color,
+    pub pink: Color,
+    pub flamingo: Color,
+    pub rosewater: Color,
+}
+
+pub const MOCHA: Theme = Theme {
+    base: Color::from_u32(0x1e1e2e),
+    surface0: Color::from_u32(0x313244),
+    surface1: Color::from_u32(0x45475a),
+    overlay0: Color::from_u32(0x6c7086),
+    text: Color::from_u32(0xcdd6f4),
+    subtext0: Color::from_u32(0xa6adc8),
+    lavender: Color::from_u32(0xb4befe),
+    blue: Color::from_u32(0x89b4fa),
+    sapphire: Color::from_u32(0x74c7ec),
+    sky: Color::from_u32(0x89dceb),
+    teal: Color::from_u32(0x94e2d5),
+    green: Color::from_u32(0xa6e3a1),
+    yellow: Color::from_u32(0xf9e2af),
+    peach: Color::from_u32(0xfab387),
+    maroon: Color::from_u32(0xeba0ac),
+    red: Color::from_u32(0xf38ba8),
+    mauve: Color::from_u32(0xcba6f7),
+    pink: Color::from_u32(0xf5c2e7),
+    flamingo: Color::from_u32(0xf2cdcd),
+    rosewater: Color::from_u32(0xf5e0dc),
+};

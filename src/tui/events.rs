@@ -91,7 +91,11 @@ async fn handle_key(app: &mut App, key: KeyEvent) -> anyhow::Result<bool> {
         KeyCode::Up => move_selection(app, -1),
         KeyCode::Down => move_selection(app, 1),
         KeyCode::Enter => app.input_mode = InputMode::Editing,
-        KeyCode::Char('s') if key.modifiers.contains(KeyModifiers::CONTROL) => save_config(app)?,
+        KeyCode::Char('s') if key.modifiers.contains(KeyModifiers::CONTROL) => {
+            if let Err(e) = save_config(app) {
+                app.set_status(format!("error: {}", e));
+            }
+        }
         _ => {}
     }
 
@@ -100,12 +104,16 @@ async fn handle_key(app: &mut App, key: KeyEvent) -> anyhow::Result<bool> {
 
 fn handle_edit_key(app: &mut App, key: KeyEvent) -> bool {
     match key.code {
-        KeyCode::Enter => {
-            apply_edit(app);
-            app.input_mode = InputMode::Normal;
-        }
+        KeyCode::Enter => match apply_edit(app) {
+            Ok(_) => {
+                app.set_status("value updated");
+                app.input_mode = InputMode::Normal;
+            }
+            Err(e) => app.set_status(format!("error: {}", e)),
+        },
         KeyCode::Esc => {
             revert_edit(app);
+            app.set_status("edit cancelled");
             app.input_mode = InputMode::Normal;
         }
         KeyCode::Char(c) => push_edit(app, c),
@@ -166,51 +174,76 @@ fn backspace_edit(app: &mut App) {
     }
 }
 
-fn apply_edit(app: &mut App) {
+fn apply_edit(app: &mut App) -> Result<(), String> {
+    let mut temp = app.config.clone();
     match app.screen {
         Screen::Thresholds => {
-            if let Ok(value) = app.thresholds[app.selected_field].parse() {
-                match app.selected_field {
-                    0 => app.config.temperature.cold = value,
-                    1 => app.config.temperature.warm = value,
-                    2 => app.config.temperature.hot = value,
-                    _ => {}
-                }
+            let value: f32 = app.thresholds[app.selected_field]
+                .parse()
+                .map_err(|_| "threshold must be a number")?;
+            if value < 0.0 {
+                return Err("threshold must be >= 0".to_string());
+            }
+            match app.selected_field {
+                0 => temp.temperature.cold = value,
+                1 => temp.temperature.warm = value,
+                2 => temp.temperature.hot = value,
+                _ => {}
             }
         }
         Screen::Colors => {
             let parts: Vec<&str> = app.colors[app.selected_field].split(',').collect();
-            if parts.len() == 3 {
-                if let Some(color) = crate::tui::app::parse_color([parts[0], parts[1], parts[2]]) {
-                    match app.selected_field {
-                        0 => app.config.colors.cold = color,
-                        1 => app.config.colors.warm = color,
-                        2 => app.config.colors.hot = color,
-                        _ => {}
-                    }
-                }
+            if parts.len() != 3 {
+                return Err("color must be three comma-separated numbers".to_string());
+            }
+            let color = crate::tui::app::parse_color([parts[0], parts[1], parts[2]])
+                .ok_or_else(|| "color values must be integers 0-255".to_string())?;
+            match app.selected_field {
+                0 => temp.colors.cold = color,
+                1 => temp.colors.warm = color,
+                2 => temp.colors.hot = color,
+                _ => {}
             }
         }
         Screen::Effects => match app.selected_field {
-            0 => app.config.effects.active_profile = app.active_profile.clone(),
+            0 => {
+                temp.effects.active_profile = app.active_profile.clone();
+            }
             1 => {
-                if let Ok(value) = app.temp_smoothing.parse() {
-                    app.config.temp_smoothing = value;
+                let value: f32 = app.temp_smoothing
+                    .parse()
+                    .map_err(|_| "temp smoothing must be a number")?;
+                if !(0.0..=1.0).contains(&value) {
+                    return Err("temp smoothing must be between 0.0 and 1.0".to_string());
                 }
+                temp.temp_smoothing = value;
             }
             2 => {
-                if let Ok(value) = app.transition_steps.parse() {
-                    app.config.transition_steps = value;
+                let value: u32 = app.transition_steps
+                    .parse()
+                    .map_err(|_| "transition steps must be a positive integer")?;
+                if value < 1 {
+                    return Err("transition steps must be >= 1".to_string());
                 }
+                temp.transition_steps = value;
             }
             _ => {
-                if let Ok(value) = app.transition_interval.parse() {
-                    app.config.transition_interval_ms = value;
+                let value: u64 = app.transition_interval
+                    .parse()
+                    .map_err(|_| "transition interval must be a positive integer")?;
+                if value < 10 {
+                    return Err("transition interval must be >= 10 ms".to_string());
                 }
+                temp.transition_interval_ms = value;
             }
         },
-        _ => {}
+        _ => return Ok(()),
     }
+
+    temp.validate()
+        .map_err(|e| e.to_string())?;
+    app.config = temp;
+    Ok(())
 }
 
 fn revert_edit(app: &mut App) {

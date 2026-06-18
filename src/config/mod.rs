@@ -260,13 +260,13 @@ impl Config {
         }
 
         for schedule in &self.effects.schedules {
-            parse_time(&schedule.start).map_err(|_| ConfigError::InvalidScheduleTime {
+            let start = parse_time(&schedule.start).map_err(|_| ConfigError::InvalidScheduleTime {
                 value: schedule.start.clone(),
             })?;
             let end = parse_time(&schedule.end).map_err(|_| ConfigError::InvalidScheduleTime {
                 value: schedule.end.clone(),
             })?;
-            if end <= parse_time(&schedule.start).unwrap_or(0) {
+            if start == end {
                 return Err(ConfigError::InvalidScheduleRange {
                     start: schedule.start.clone(),
                     end: schedule.end.clone(),
