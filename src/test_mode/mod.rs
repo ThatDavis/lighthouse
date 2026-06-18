@@ -18,7 +18,9 @@ pub async fn run(config_path: PathBuf) -> Result<()> {
         Err(e) => {
             if config.dry_run {
                 warn!("dry-run: continuing without OpenRGB ({e})");
-                OpenRgbClient::new(&config.openrgb_host, config.openrgb_port, true).connect().await?
+                OpenRgbClient::new(&config.openrgb_host, config.openrgb_port, true)
+                    .connect()
+                    .await?
             } else {
                 anyhow::bail!("failed to connect to OpenRGB: {e}");
             }

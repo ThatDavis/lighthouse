@@ -138,7 +138,12 @@ impl Connection {
         }
     }
 
-    async fn send_command(&mut self, command: Command, device_id: u32, data: &[u8]) -> Result<(), OpenRgbError> {
+    async fn send_command(
+        &mut self,
+        command: Command,
+        device_id: u32,
+        data: &[u8],
+    ) -> Result<(), OpenRgbError> {
         match &mut self.inner {
             ConnectionInner::DryRun => {
                 info!(
@@ -174,7 +179,8 @@ impl Connection {
 
                 let _device_id = u32::from_le_bytes([header[4], header[5], header[6], header[7]]);
                 let command = u32::from_le_bytes([header[8], header[9], header[10], header[11]]);
-                let data_size = u32::from_le_bytes([header[12], header[13], header[14], header[15]]);
+                let data_size =
+                    u32::from_le_bytes([header[12], header[13], header[14], header[15]]);
 
                 let mut data = vec![0u8; data_size as usize];
                 if data_size > 0 {
@@ -201,13 +207,20 @@ impl Connection {
             )));
         }
         Ok(u32::from_le_bytes([
-            packet.data[0], packet.data[1], packet.data[2], packet.data[3],
+            packet.data[0],
+            packet.data[1],
+            packet.data[2],
+            packet.data[3],
         ]))
     }
 
     async fn set_client_name(&mut self, name: &str) -> Result<(), OpenRgbError> {
-        self.send_command(Command::SetClientName, 0, &(name.to_string() + "\0").into_bytes())
-            .await
+        self.send_command(
+            Command::SetClientName,
+            0,
+            &(name.to_string() + "\0").into_bytes(),
+        )
+        .await
     }
 
     pub async fn request_controller_count(&mut self) -> Result<u32, OpenRgbError> {
@@ -221,7 +234,10 @@ impl Connection {
             )));
         }
         Ok(u32::from_le_bytes([
-            packet.data[0], packet.data[1], packet.data[2], packet.data[3],
+            packet.data[0],
+            packet.data[1],
+            packet.data[2],
+            packet.data[3],
         ]))
     }
 
@@ -245,7 +261,11 @@ impl Connection {
         parse_controller_data(&packet.data, self.protocol_version)
     }
 
-    pub async fn set_direct_mode(&mut self, device_id: u32, controller: &ControllerData) -> Result<(), OpenRgbError> {
+    pub async fn set_direct_mode(
+        &mut self,
+        device_id: u32,
+        controller: &ControllerData,
+    ) -> Result<(), OpenRgbError> {
         let (mode_idx, mode) = controller
             .direct_mode()
             .ok_or_else(|| OpenRgbError::Protocol("no Direct/Custom/Static mode found".into()))?;
@@ -259,7 +279,8 @@ impl Connection {
         mode: &ModeData,
     ) -> Result<(), OpenRgbError> {
         let data = build_mode_description(mode_idx, mode, self.protocol_version);
-        self.send_command(Command::UpdateMode, device_id, &data).await
+        self.send_command(Command::UpdateMode, device_id, &data)
+            .await
     }
 
     pub async fn set_zone_color(
@@ -404,10 +425,7 @@ fn parse_controller_data(
         let speed_min = read_u32(data, &mut offset)?;
         let speed_max = read_u32(data, &mut offset)?;
         let (brightness_min, brightness_max) = if protocol_version >= 3 {
-            (
-                read_u32(data, &mut offset)?,
-                read_u32(data, &mut offset)?,
-            )
+            (read_u32(data, &mut offset)?, read_u32(data, &mut offset)?)
         } else {
             (0, 0)
         };
