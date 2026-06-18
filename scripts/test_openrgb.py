@@ -31,7 +31,7 @@ CMD_SET_CLIENT_NAME = 50
 CMD_UPDATE_LEDS = 1050
 CMD_UPDATE_ZONE_LEDS = 1051
 CMD_UPDATE_SINGLE_LED = 1052
-CMD_SET_CUSTOM_MODE = 1100
+CMD_UPDATE_MODE = 1101
 
 
 def send_command(sock, command, device_id, data):
@@ -81,6 +81,11 @@ def skip_string(data, offset):
     return offset + 2 + length
 
 
+def write_string(value):
+    encoded = (value + "\0").encode("utf-8")
+    return struct.pack("<H", len(encoded)) + encoded
+
+
 def parse_controller_data(data, protocol_version):
     offset = 4  # data_size
 
@@ -100,23 +105,48 @@ def parse_controller_data(data, protocol_version):
 
     # modes
     num_modes, offset = read_u16(data, offset)
-    offset += 4  # active_mode
+    active_mode, offset = read_u32(data, offset)
+    modes = []
     for _ in range(num_modes):
-        offset = skip_string(data, offset)
-        # value, flags, speed_min, speed_max
-        offset += 4 * 4
+        name, offset = read_string(data, offset)
+        value, offset = read_u32(data, offset)
+        flags, offset = read_u32(data, offset)
+        speed_min, offset = read_u32(data, offset)
+        speed_max, offset = read_u32(data, offset)
+        brightness_min = 0
+        brightness_max = 0
+        brightness = 0
         if protocol_version >= 3:
-            offset += 2 * 4  # brightness_min, brightness_max
-        # colors_min, colors_max
-        offset += 2 * 4
-        # speed
-        offset += 4
+            brightness_min, offset = read_u32(data, offset)
+            brightness_max, offset = read_u32(data, offset)
+        colors_min, offset = read_u32(data, offset)
+        colors_max, offset = read_u32(data, offset)
+        speed, offset = read_u32(data, offset)
         if protocol_version >= 3:
-            offset += 4  # brightness
-        # direction, color_mode
-        offset += 2 * 4
+            brightness, offset = read_u32(data, offset)
+        direction, offset = read_u32(data, offset)
+        color_mode, offset = read_u32(data, offset)
         num_colors, offset = read_u16(data, offset)
-        offset += num_colors * 4
+        colors = []
+        for _ in range(num_colors):
+            c, offset = read_u32(data, offset)
+            colors.append(c)
+        modes.append({
+            "name": name,
+            "value": value,
+            "flags": flags,
+            "speed_min": speed_min,
+            "speed_max": speed_max,
+            "brightness_min": brightness_min,
+            "brightness_max": brightness_max,
+            "colors_min": colors_min,
+            "colors_max": colors_max,
+            "speed": speed,
+            "brightness": brightness,
+            "direction": direction,
+            "color_mode": color_mode,
+            "colors": colors,
+        })
 
     # zones
     num_zones, offset = read_u16(data, offset)
@@ -142,7 +172,38 @@ def parse_controller_data(data, protocol_version):
             "led_count": leds_count,
         })
 
-    return zones
+    return {"active_mode": active_mode, "modes": modes, "zones": zones}
+
+
+def find_direct_mode(modes):
+    for candidate in ("Direct", "Custom", "Static"):
+        for idx, mode in enumerate(modes):
+            if mode["name"] == candidate:
+                return idx
+    return None
+
+
+def build_mode_description(mode_idx, mode, protocol_version):
+    body = struct.pack("<I", mode_idx)
+    body += write_string(mode["name"])
+    body += struct.pack(
+        "<IIII",
+        mode["value"],
+        mode["flags"],
+        mode["speed_min"],
+        mode["speed_max"],
+    )
+    if protocol_version >= 3:
+        body += struct.pack("<II", mode["brightness_min"], mode["brightness_max"])
+    body += struct.pack("<II", mode["colors_min"], mode["colors_max"])
+    body += struct.pack("<I", mode["speed"])
+    if protocol_version >= 3:
+        body += struct.pack("<I", mode["brightness"])
+    body += struct.pack("<II", mode["direction"], mode["color_mode"])
+    body += struct.pack("<H", len(mode["colors"]))
+    for c in mode["colors"]:
+        body += struct.pack("<I", c)
+    return struct.pack("<I", 4 + len(body)) + body
 
 
 def set_client_name(sock, name):
@@ -178,8 +239,8 @@ def request_controller_data(sock, device_id, protocol_version):
     return parse_controller_data(data, protocol_version)
 
 
-def set_custom_mode(sock, device_id):
-    send_command(sock, CMD_SET_CUSTOM_MODE, device_id, b"")
+def set_mode(sock, device_id, mode_data, protocol_version):
+    send_command(sock, CMD_UPDATE_MODE, device_id, mode_data)
 
 
 def rgbcolor(color):
@@ -251,14 +312,21 @@ def main():
         return 1
 
     print(f"Requesting controller data for device {args.device} ...")
-    zones = request_controller_data(sock, args.device, negotiated)
+    controller = request_controller_data(sock, args.device, negotiated)
+    zones = controller["zones"]
     print(f"Zones on device {args.device}:")
     for idx, zone in enumerate(zones):
         print(f"  zone {idx}: {zone['name']!r} ({zone['led_count']} leds)")
     print()
 
-    print("Setting custom (Direct) mode ...")
-    set_custom_mode(sock, args.device)
+    direct_idx = find_direct_mode(controller["modes"])
+    if direct_idx is None:
+        print("No Direct/Custom/Static mode found; aborting", file=sys.stderr)
+        return 1
+
+    print(f"Switching to mode {direct_idx}: {controller['modes'][direct_idx]['name']!r} ...")
+    mode_data = build_mode_description(direct_idx, controller["modes"][direct_idx], negotiated)
+    set_mode(sock, args.device, mode_data, negotiated)
     print()
 
     zone_ids = args.zones
