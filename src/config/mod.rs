@@ -22,6 +22,8 @@ pub struct Config {
     #[serde(default)]
     pub effects: EffectsConfig,
     #[serde(default)]
+    pub mqtt: MqttConfig,
+    #[serde(default)]
     pub dry_run: bool,
 }
 
@@ -53,6 +55,38 @@ pub struct ColorConfig {
     pub cold: [u8; 3],
     pub warm: [u8; 3],
     pub hot: [u8; 3],
+}
+
+#[derive(Debug, Clone, Deserialize, Serialize, PartialEq, Default)]
+pub struct MqttConfig {
+    #[serde(default)]
+    pub enabled: bool,
+    #[serde(default = "default_mqtt_broker")]
+    pub broker_host: String,
+    #[serde(default = "default_mqtt_port")]
+    pub broker_port: u16,
+    pub username: Option<String>,
+    pub password: Option<String>,
+    #[serde(default = "default_mqtt_topic_prefix")]
+    pub topic_prefix: String,
+    #[serde(default = "default_mqtt_discovery_prefix")]
+    pub discovery_prefix: String,
+}
+
+fn default_mqtt_broker() -> String {
+    "127.0.0.1".to_string()
+}
+
+fn default_mqtt_port() -> u16 {
+    1883
+}
+
+fn default_mqtt_topic_prefix() -> String {
+    "lighthouse".to_string()
+}
+
+fn default_mqtt_discovery_prefix() -> String {
+    "homeassistant".to_string()
 }
 
 #[derive(Debug, Clone, Deserialize, Serialize, PartialEq, Default)]
@@ -330,6 +364,7 @@ mod tests {
                 hot: [255, 0, 0],
             },
             effects: EffectsConfig::default(),
+            mqtt: MqttConfig::default(),
             dry_run: false,
         }
     }

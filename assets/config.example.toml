@@ -88,5 +88,15 @@ end = "06:00"
 profile = "breathe"
 outside_range = "off"
 
+# MQTT/Home Assistant integration
+[mqtt]
+enabled = false
+broker_host = "homeassistant.local"
+broker_port = 1883
+username = "mqtt"
+password = "mqtt"
+topic_prefix = "lighthouse"
+discovery_prefix = "homeassistant"
+
 # Dry-run mode: log intended color changes without contacting OpenRGB
 dry_run = true

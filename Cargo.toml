@@ -27,6 +27,8 @@ sysinfo = "0.34"
 thiserror = "2.0"
 anyhow = "1.0"
 dirs = "6.0"
+rumqttc = { version = "0.25.1", features = ["use-rustls"] }
+serde_json = "1.0.150"
 
 [dev-dependencies]
 tempfile = "3.19"
